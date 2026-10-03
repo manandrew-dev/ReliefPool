@@ -1,12 +1,6 @@
-# vite
+# ReliefPool frontend
 
-React + Vite starter with Tailwind CSS and `@solana/react-hooks` for wallet connection and Solana hooks.
-
-## Getting Started
-
-```shell
-npx -y create-solana-dapp@latest -t solana-foundation/templates/kit/frontend
-```
+React + Vite + Tailwind dashboard. Uses `@solana/react-hooks` for wallet connection and chain reads on devnet.
 
 ```shell
 npm install
