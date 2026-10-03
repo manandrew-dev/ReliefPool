@@ -107,3 +107,20 @@ export function useAsyncData<T>(
     refresh: load,
   };
 }
+
+// Merges the states a card depends on. List upstream sources first: when
+// GET /pool fails the chain reads never start, so its error must win, and
+// Retry reloads every source that has an error.
+export function combineAsync(...sources: AsyncData<unknown>[]) {
+  const failed = sources.filter((s) => s.error);
+  const times = sources
+    .map((s) => s.updatedAt?.getTime())
+    .filter((t): t is number => t !== undefined);
+  return {
+    hasData: sources.every((s) => s.data !== undefined),
+    loading: sources.some((s) => s.loading),
+    error: failed[0]?.error,
+    updatedAt: times.length > 0 ? new Date(Math.min(...times)) : undefined,
+    onRetry: () => failed.forEach((s) => s.refresh()),
+  };
+}
