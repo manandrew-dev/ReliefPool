@@ -12,6 +12,9 @@ import { mockWallets } from "../mocks/wallets";
 
 export type Address = WalletSession["account"]["address"];
 
+// True while this module returns mock data instead of reading the chain.
+export const isMock = true;
+
 export interface Responder {
   wallet: Address;
   shareBps: number;
@@ -56,6 +59,8 @@ export class ProgramError extends Error {
 // Mock chain state. Totals line up with the oracle fixtures: one 2 SOL
 // payout for replay-major-01, threshold 70.
 const SOL = 1_000_000_000n;
+// Starting balance of every wallet in mock mode.
+const MOCK_WALLET_BALANCE_LAMPORTS = 3n * SOL;
 const VAULT_RENT_EXEMPT_LAMPORTS = 890_880n;
 const MOCK_LATENCY_MS = 150;
 
@@ -89,6 +94,7 @@ const mockContributions: Contribution[] = [
   },
 ];
 
+const mockWalletSpent = new Map<Address, bigint>();
 let mockSignatureCount = 0;
 
 function mockDelay<T>(value: T): Promise<T> {
@@ -127,8 +133,23 @@ export async function getVaultBalance(vaultAddress: Address): Promise<bigint> {
   );
 }
 
+// Lamport balance of any wallet, e.g. the connected one before contributing.
+export async function getWalletBalance(
+  walletAddress: Address
+): Promise<bigint> {
+  const spent = mockWalletSpent.get(walletAddress) ?? 0n;
+  return mockDelay(MOCK_WALLET_BALANCE_LAMPORTS - spent);
+}
+
 // Sends the contribute instruction signed by the connected wallet and
 // resolves with the transaction signature.
+//
+// TODO(real client): only sign in the wallet and send through the app's
+// devnet RPC, so a wallet set to mainnet cannot send the transaction there.
+// Build the signer with createWalletTransactionSigner(wallet) from
+// @solana/client and require mode === "partial" (the wallet exposes
+// signTransaction). Refuse mode === "send", where the wallet would send the
+// transaction itself on whatever network it is set to.
 export async function contribute(
   amountLamports: bigint,
   { pool, wallet }: { pool: Address; wallet: WalletSession }
@@ -146,6 +167,10 @@ export async function contribute(
     mockContributions.push({ pool, contributor, amount: amountLamports });
   }
   mockPool.totalContributed += amountLamports;
+  mockWalletSpent.set(
+    contributor,
+    (mockWalletSpent.get(contributor) ?? 0n) + amountLamports
+  );
 
   mockSignatureCount += 1;
   return mockDelay(`mock-contribute-${mockSignatureCount}`);
