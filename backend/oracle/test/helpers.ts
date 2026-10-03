@@ -43,15 +43,11 @@ export function setup(opts: { classifier?: Classifier; threshold?: number } = {}
   return { store, chain, classifier, pipeline };
 }
 
-// Waits for a background replay to reach a final state.
+// Waits for a pending payout to confirm or fail.
 export async function settled(store: EventStore, id: string): Promise<QuakeEvent> {
   for (let i = 0; i < 100; i++) {
-    const e = store.get(id)!;
-    const done =
-      e.status === "paid" ||
-      e.status === "failed" ||
-      (e.status === "scored" && e.riskScore !== null);
-    if (done) return e;
+    const e = store.get(id);
+    if (e && e.status !== "pending") return e;
     await new Promise((r) => setTimeout(r, 5));
   }
   throw new Error(`Event ${id} did not settle`);

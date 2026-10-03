@@ -384,4 +384,6 @@ A repeated event ID needs no custom error: creating a payout record that already
 ## Changes in v0.2
 
 - **`POST /replay` (section 3.7):** the backend scores the event before responding, so the `202` response has `status` `"scored"`, `"pending"`, or `"failed"`, and `riskScore` is null only when status is `"failed"` (section 3.1). The final `"paid"` status still arrives through `GET /events` polling.
+- **Classifier API (section 4):** locked to Keith's contract. The request is exactly `eventId`, `magnitude`, `depthKm`, `latitude`, and `longitude`; the response adds `modelVersion` (`rules-v1` or `model-v1`). Classifier failures are reported as `CLASSIFIER_UNAVAILABLE`, `CLASSIFIER_REJECTED`, or `CLASSIFIER_INVALID_RESPONSE`.
+- **`GET /health` (section 3.2):** adds `classifierModelVersion`, and dependency statuses can be `"mock"`.
 - **Client types (sections 1 and 5):** the frontend uses `@solana/kit` and a Codama-generated client, so accounts use `Address` and `bigint` instead of Anchor's `PublicKey` and `BN`. The oracle may use any client that follows the IDL, and the program owner commits the built IDL JSON and keeps it current.

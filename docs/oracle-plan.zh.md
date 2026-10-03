@@ -61,7 +61,7 @@ replay 用的是 USGS 的真实地震，用稳定的 USGS 事件 ID 标识（不
 | 联调时反馈链上报错（`BelowThreshold`、`InsufficientFunds` 等） | 联调阶段 |
 
 ### 我需要从 Alice 那里拿到
-- **IDL JSON + TS types**（`target/idl/*.json`、`target/types/*.ts`）。即使程序还没写完，也请她尽早给一版"接口先行"的 IDL。
+- **IDL JSON**：提交到仓库的 `idl/reliefpool.json`，并随程序接口一起更新（[api.md](api.md) §5）。即使程序还没写完，也请她尽早给一版"接口先行"的 IDL。
 - **Program ID**，以及部署后的 **Pool 地址**（或 admin 公钥 + region_id，我可以自己推导 PDA）。
 - `trigger_payout` 需要的**完整账户列表**（pool、vault、payout_record、oracle signer、每个 responder 的钱包是否走 `remaining_accounts`？）。**这一点必须问清楚**，否则交易一定会失败。
 - 打款金额的规则：是按单次上限（cap）付，还是付出整个金库（扣除 rent 后）？（requirements §13 的待定问题。）这决定了我怎么填 `amountLamports`。我更倾向于在交易确认后**直接读取 PayoutRecord.amount**，这样就不用关心具体规则。
@@ -86,7 +86,7 @@ replay 用的是 USGS 的真实地震，用稳定的 USGS 事件 ID 标识（不
 
 ## 3. 技术方案
 
-**技术栈：** Node + TypeScript + Express，使用 `@coral-xyz/anchor`、`@solana/web3.js`。存储用内存 + `backend/oracle/data/events.json`（不进 git；每次状态变化都写入，防止演示中途重启丢失交易签名，这也回答了 [api.md](api.md) §7 的问题）。
+**技术栈：** Node + TypeScript + Express，使用 `@solana/web3.js`（再根据 IDL 选合适的客户端；[api.md](api.md) §5 允许 oracle 使用任何遵循 IDL 的客户端）。存储用内存 + `backend/oracle/data/events.json`（不进 git；每次状态变化都写入，防止演示中途重启丢失交易签名，这也回答了 [api.md](api.md) §7 的问题）。
 
 ### 目录结构
 ```
@@ -99,7 +99,7 @@ backend/oracle/
     usgs.ts           # 拉取 feed，并把 GeoJSON feature 转成内部事件
     region.ts         # 判断事件是否在 bounding box 内
     classifier.ts     # POST /score，带超时(3s)和 1 次重试；仅在 MOCK_CLASSIFIER=true 时用本地公式
-    chain.ts          # Anchor client：读取 Pool(threshold)、检查 PayoutRecord 是否存在、发送 trigger_payout
+    chain.ts          # Solana 客户端：读取 Pool(threshold)、检查 PayoutRecord 是否存在、发送 trigger_payout
     pipeline.ts       # processEvent(evt)：live 和 replay 共用的同一条处理流程
     scenarios.ts      # 读取 scenarios.json
     routes.ts         # api.md §3 的全部接口 + 统一错误格式
@@ -112,7 +112,7 @@ backend/oracle/
 ### 核心流程 `processEvent`（live 和 replay 走同一路径，满足 FR-30）
 1. **去重（FR-14 / NFR-5）**：如果 store 里已有该 id，live 事件直接跳过；replay 返回 `409 EVENT_ALREADY_PROCESSED`。
 2. **区域过滤（FR-11）**：不在区域内就丢弃，也不存储。区域内但低于 `MIN_MAGNITUDE` 的事件，存为 `scored`、`riskScore: 0`，不送去 classifier。
-3. 写入 store，此时 `riskScore: null`、`status: "scored"`，并设置 `processedAt`。
+3. 把这个 ID 标记为"处理中"（下一次轮询或重复的 replay 会跳过它），并设置 `processedAt`。事件打完分或失败之后才写入存储，所以只有 `failed` 的事件 `riskScore` 才为 `null`（[api.md](api.md) §3.1）。
 4. **评分（FR-12）**：调用 classifier。如果失败，就设为 `status: "failed"`，`failureReason: "CLASSIFIER_UNAVAILABLE"`，然后**结束，绝不打款（NFR-7）**。
 5. 从链上读取 Pool 的 `threshold`（缓存 30 秒），写进事件。
 6. 如果 `score < threshold`，状态设为 `scored`，流程结束。
@@ -161,7 +161,7 @@ backend/oracle/
    - `curl localhost:3001/api/health`
    - `curl localhost:3001/api/replay/scenarios`
    - `curl -X POST localhost:3001/api/replay -d '{"scenarioId":"jp-2013-m69-deep"}'`：之后 `GET /events` 应显示 `scored`
-   - 用 `jp-2022-m73` 重复上一步：状态应依次经过 `pending` 和 `paid`
+   - 用 `jp-2022-m73` 重复上一步：`202` 响应里已经是带分数的 `pending`，大约一秒后 `GET /events` 显示 `paid`
    - 对 `jp-2022-m73` 再发一次：应返回 `409`
    - 加上 `runId` 再发：应成功
 2. **Classifier 契约：** 启动 Keith 的服务并设置 `MOCK_CLASSIFIER=false` 后，每个 `/score` 请求都只包含契约规定的 5 个字段，`/health` 里的 `classifierModelVersion` 显示 `rules-v1` 或 `model-v1`。自动化测试见 `test/classifier.test.ts`。

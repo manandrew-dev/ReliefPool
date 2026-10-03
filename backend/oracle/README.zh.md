@@ -36,7 +36,7 @@ npm run dev        # http://localhost:3001/api，改代码后自动重启
 5. 分数低于阈值：状态为 `scored`，流程结束。
 6. 发送 `trigger_payout`：状态变为 `pending`，链上确认后变为 `paid`；交易失败则变为 `failed`，并记录程序返回的错误名。
 
-打分进行中时，事件状态为 `scored`，`riskScore` 为 `null`。每次状态变化都会写入 `data/events.json`，所以重启后交易签名不会丢失。
+事件打完分之后才会存储，所以只有 `failed` 的事件 `riskScore` 才为 `null`。`POST /replay` 会等第 1~6 步完成后再返回，此时事件状态为 `scored`、`pending` 或 `failed`；`paid` 状态稍后通过 `GET /events` 获取。每次状态变化都会写入 `data/events.json`，所以重启后交易签名不会丢失。
 
 ## Replay 场景
 

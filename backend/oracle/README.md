@@ -36,7 +36,7 @@ Live and replayed events take the same path ([src/pipeline.ts](src/pipeline.ts))
 5. Score below the threshold: `scored`, stop.
 6. Send `trigger_payout`: status becomes `pending`, then `paid` once confirmed (or `failed` with the program's error name).
 
-While an event is being scored, its status is `scored` with `riskScore: null`. Events are saved to `data/events.json` after every change, so a restart keeps payout signatures.
+An event is stored only once it has been scored, so `riskScore` is `null` only on `failed` events. `POST /replay` waits for steps 1–6 and returns the event as `scored`, `pending`, or `failed`; the `paid` status arrives later through `GET /events`. Events are saved to `data/events.json` after every change, so a restart keeps payout signatures.
 
 ## Replay scenarios
 

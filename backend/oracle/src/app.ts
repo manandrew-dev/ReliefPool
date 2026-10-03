@@ -65,7 +65,7 @@ export function createApp(deps: AppDeps) {
     res.json({ scenarios: scenarios.map(toScenarioSummary) });
   });
 
-  api.post("/replay", (req, res) => {
+  api.post("/replay", async (req, res) => {
     const { scenarioId, runId } = (req.body ?? {}) as Record<string, unknown>;
     if (typeof scenarioId !== "string" || !scenarioId) {
       throw new ApiError("INVALID_REQUEST", "scenarioId is required.");
@@ -77,7 +77,7 @@ export function createApp(deps: AppDeps) {
     if (!scenario) {
       throw new ApiError("SCENARIO_NOT_FOUND", `No replay scenario with id '${scenarioId}'.`);
     }
-    res.status(202).json(pipeline.startReplay(scenario, runId));
+    res.status(202).json(await pipeline.replay(scenario, runId));
   });
 
   const app = express();

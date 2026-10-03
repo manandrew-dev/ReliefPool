@@ -61,7 +61,7 @@ Replays are real USGS events, identified by stable USGS IDs (not CSV row numbers
 | Reports of on-chain errors during integration (`BelowThreshold`, `InsufficientFunds`, and so on) | Integration |
 
 ### I need from Alice
-- **IDL JSON + TS types**. An early interface-first IDL is enough to start.
+- **The IDL JSON**, committed at `idl/reliefpool.json` and kept current ([api.md](api.md) §5). An early interface-first version is enough to start.
 - **Program ID** and the deployed **Pool address** (or the admin key + region_id, so I can derive the PDA myself).
 - The **exact account list for `trigger_payout`**, including whether responder wallets go in `remaining_accounts`. I must confirm this with her; if it's wrong, the transaction will fail.
 - The payout amount rule: does a payout send the per-event cap, or the whole vault minus rent? (Open question in requirements §13.) I'd rather **read `PayoutRecord.amount` after confirmation**, so the oracle works either way.
@@ -86,7 +86,7 @@ Already delivered: the interface contract (§1). Still needed:
 
 ## 3. Technical approach
 
-**Stack:** Node + TypeScript + Express, with `@coral-xyz/anchor` and `@solana/web3.js`. Storage is in-memory plus `backend/oracle/data/events.json` (gitignored), written on every status change. This keeps payout signatures safe if the service restarts mid-demo, which answers the open question in [api.md](api.md) §7.
+**Stack:** Node + TypeScript + Express, with `@solana/web3.js` (plus whichever client fits the IDL best; [api.md](api.md) §5 lets the oracle use any client that follows the IDL). Storage is in-memory plus `backend/oracle/data/events.json` (gitignored), written on every status change. This keeps payout signatures safe if the service restarts mid-demo, which answers the open question in [api.md](api.md) §7.
 
 ### Layout
 ```
@@ -99,7 +99,7 @@ backend/oracle/
     usgs.ts         # fetch feed, convert each GeoJSON feature to an internal event
     region.ts       # bounding-box check
     classifier.ts   # POST /score, 3s timeout, 1 retry; local formula only if MOCK_CLASSIFIER=true
-    chain.ts        # Anchor client: read Pool (threshold), check PayoutRecord, send trigger_payout
+    chain.ts        # Solana client: read Pool (threshold), check PayoutRecord, send trigger_payout
     pipeline.ts     # processEvent(evt): one shared path for live and replay events
     scenarios.ts    # loads scenarios.json
     routes.ts       # every api.md §3 endpoint + the shared error format
@@ -112,7 +112,7 @@ backend/oracle/
 ### `processEvent` (live and replay share one path, FR-30)
 1. **Dedupe (FR-14 / NFR-5):** if the store already has this ID, skip it for live events; for replays, return `409 EVENT_ALREADY_PROCESSED`.
 2. **Region filter (FR-11):** drop events outside the region and don't store them. In-region events below `MIN_MAGNITUDE` are stored as `scored` with `riskScore: 0` and are not sent to the classifier.
-3. Store the event with `riskScore: null`, `status: "scored"`, and `processedAt` set.
+3. Mark the ID as in flight (so the next poll or a second replay skips it), and set `processedAt`. The event is stored only once it has a score or has failed, so `riskScore` is `null` only on `failed` events ([api.md](api.md) §3.1).
 4. **Score (FR-12):** call the classifier. If it fails, set `status: "failed"` and `failureReason: "CLASSIFIER_UNAVAILABLE"`, then **stop. Never pay out (NFR-7).**
 5. Read `threshold` from the on-chain Pool (cached for 30 seconds) and store it on the event.
 6. If `score < threshold`, the status stays `scored` and processing ends.
@@ -161,7 +161,7 @@ On startup, look up the signature of every event still in `pending`, then set ea
    - `curl localhost:3001/api/health`
    - `curl localhost:3001/api/replay/scenarios`
    - `POST /replay` with `jp-2013-m69-deep`: the event should show as `scored` in `GET /events`
-   - `POST /replay` with `jp-2022-m73`: the status should go from `pending` to `paid`
+   - `POST /replay` with `jp-2022-m73`: the `202` response already shows `pending` with a score, and `GET /events` shows `paid` about a second later
    - Send `jp-2022-m73` again: expect `409`
    - Send it again with a `runId`: expect success
 2. **Classifier contract:** with Keith's service running and `MOCK_CLASSIFIER=false`, each `/score` request contains exactly the five contract fields, and `/health` shows `classifierModelVersion` as `rules-v1` or `model-v1`. Automated: `test/classifier.test.ts`.

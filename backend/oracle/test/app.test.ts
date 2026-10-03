@@ -60,7 +60,18 @@ test("GET /replay/scenarios lists both outcomes", async () => {
 test("POST /replay -> 202, then 409 on repeat, 404 on unknown, 400 on bad body", async () => {
   const first = await post("/replay", { scenarioId: "jp-2022-m73" });
   assert.equal(first.status, 202);
-  assert.equal((await first.json()).id, "jp-2022-m73");
+  const created = await first.json();
+  assert.equal(created.id, "jp-2022-m73");
+  // Scored before the response (docs/api.md §3.7).
+  assert.equal(created.status, "pending");
+  assert.equal(created.riskScore, 77);
+
+  const below = await post("/replay", { scenarioId: "jp-2013-m69-deep" });
+  assert.equal(below.status, 202);
+  assert.deepEqual(
+    (({ status, riskScore }) => ({ status, riskScore }))(await below.json()),
+    { status: "scored", riskScore: 27 },
+  );
 
   const repeat = await post("/replay", { scenarioId: "jp-2022-m73" });
   assert.equal(repeat.status, 409);
