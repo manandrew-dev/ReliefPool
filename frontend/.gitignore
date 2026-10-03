@@ -1,6 +1,11 @@
 # Dependencies
 node_modules
 
+# Env (keep the example committed)
+.env
+.env.*
+!.env.example
+
 # Build
 dist
 dist-ssr
