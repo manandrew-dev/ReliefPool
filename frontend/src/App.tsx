@@ -1,3 +1,4 @@
+import { AgreedTermsCard } from "./components/AgreedTermsCard";
 import { HealthIndicator } from "./components/HealthIndicator";
 import { MockBadge } from "./components/MockBadge";
 import { NetworkBanner } from "./components/NetworkBanner";
@@ -27,6 +28,9 @@ export default function App() {
       <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4">
         <NetworkBanner problem={networkProblem} />
         <PoolSummary data={poolData} />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <AgreedTermsCard data={poolData} />
+        </div>
       </main>
     </>
   );
