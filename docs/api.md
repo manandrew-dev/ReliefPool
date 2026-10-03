@@ -99,12 +99,13 @@ interface Payout {
 
 ### 3.2 `GET /health`
 
-Lets the frontend show whether the backend and its dependencies are up.
+Lets the frontend show whether the backend and its dependencies are up. `classifier` and `solana` are `"ok"`, `"down"`, or `"mock"`. `classifierModelVersion` shows which scorer is live (`null` if the classifier is down).
 
 ```json
 {
   "status": "ok",
   "classifier": "ok",
+  "classifierModelVersion": "rules-v1",
   "solana": "ok",
   "lastFeedPollAt": "2026-10-03T18:42:00Z"
 }
@@ -224,41 +225,67 @@ Server-sent events that push each new or updated `QuakeEvent`, replacing polling
 
 ## 4. Classifier API (oracle service ↔ classifier, internal)
 
-Not called by the frontend.
+Not called by the frontend. The full contract is [ReliefPool_ML_Oracle_Interface_Contract.docx](ReliefPool_ML_Oracle_Interface_Contract.docx); this section summarizes it.
 
 ### `POST /score`
 
-Request:
+Request: exactly these five fields, all required and never `null`.
 
 ```json
 {
-  "eventId": "replay-major-01",
-  "magnitude": 9.1,
-  "depthKm": 29.0,
-  "latitude": 38.297,
-  "longitude": 142.373,
-  "time": "2011-03-11T05:46:24Z"
+  "eventId": "us6000h519",
+  "magnitude": 7.3,
+  "depthKm": 41.0,
+  "latitude": 37.7132,
+  "longitude": 141.5793
 }
 ```
+
+| Field | Type | Notes |
+|---|---|---|
+| `eventId` | string | USGS event ID or replay event ID; used for correlation only, not as a feature |
+| `magnitude` | number | |
+| `depthKm` | number | |
+| `latitude` | number | −90 to 90 |
+| `longitude` | number | −180 to 180 |
+
+Post-event fields (`cdi`, `mmi`, `sig`, felt reports) are not sent; they are often missing in the first minutes of a live event.
 
 Response:
 
 ```json
 {
-  "eventId": "replay-major-01",
-  "riskScore": 97,
-  "probability": 0.968,
-  "modelVersion": "v1"
+  "eventId": "us6000h519",
+  "riskScore": 81,
+  "probability": 0.81,
+  "modelVersion": "model-v1"
 }
 ```
 
-- `riskScore` is `round(probability * 100)`; this integer is what goes on-chain.
-- The request fields above are a guess at what the model needs. Change them to match the model's actual features, and do it early, since the oracle is built around this shape.
+- `eventId` must match the request exactly.
+- `riskScore` is an integer from 0 to 100; this is what goes on-chain.
+- `probability` (0 to 1) is returned only by the trained model.
+- `modelVersion` is `"rules-v1"` for the temporary rule-based scorer and `"model-v1"` for the trained model. The classifier owner announces the switch before it happens.
+
+Rules:
+
+- The classifier only scores. The oracle compares the score with the pool threshold and triggers the payout.
+- If a required field is missing, the oracle does not invent a value; it waits for the next feed poll or marks the event unscorable.
+- If the classifier rejects a request or is unavailable, the event is marked `failed` and never treated as low risk.
+- Target response time is under 2 seconds.
+
+How the oracle labels classifier failures (`failureReason` on the event):
+
+| `failureReason` | When | Retried |
+|---|---|---|
+| `CLASSIFIER_UNAVAILABLE` | No response, timeout, or 5xx | Once |
+| `CLASSIFIER_REJECTED` | 4xx (invalid input) | No |
+| `CLASSIFIER_INVALID_RESPONSE` | Response breaks the rules above | No |
 
 ### `GET /health`
 
 ```json
-{ "status": "ok", "modelVersion": "v1" }
+{ "status": "ok", "modelVersion": "model-v1" }
 ```
 
 ## 5. On-chain interface (Solana program)
@@ -350,11 +377,13 @@ A repeated event ID needs no custom error: creating a payout record that already
 
 ## 7. Open questions
 
-- Which fields does the classifier actually need?
-- Does the backend persist events (a JSON file is enough) so a restart mid-demo does not lose payout signatures?
+- ~~Which fields does the classifier actually need?~~ Resolved: the five fields in §4.
+- ~~Does the backend persist events?~~ Resolved: yes, to a JSON file.
 - Final program ID and pool address, once deployed.
 
 ## Changes in v0.2
 
 - **`POST /replay` (section 3.7):** the backend scores the event before responding, so the `202` response has `status` `"scored"`, `"pending"`, or `"failed"`, and `riskScore` is null only when status is `"failed"` (section 3.1). The final `"paid"` status still arrives through `GET /events` polling.
+- **Classifier API (section 4):** locked to Keith's contract. The request is exactly `eventId`, `magnitude`, `depthKm`, `latitude`, and `longitude`; the response adds `modelVersion` (`rules-v1` or `model-v1`). Classifier failures are reported as `CLASSIFIER_UNAVAILABLE`, `CLASSIFIER_REJECTED`, or `CLASSIFIER_INVALID_RESPONSE`.
+- **`GET /health` (section 3.2):** adds `classifierModelVersion`, and dependency statuses can be `"mock"`.
 - **Client types (sections 1 and 5):** the frontend uses `@solana/kit` and a Codama-generated client, so accounts use `Address` and `bigint` instead of Anchor's `PublicKey` and `BN`. The oracle may use any client that follows the IDL, and the program owner commits the built IDL JSON and keeps it current.
