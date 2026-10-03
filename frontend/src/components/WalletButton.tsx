@@ -1,8 +1,5 @@
 import { useWalletModalState } from "@solana/react-hooks";
-
-function shortAddress(address: string): string {
-  return `${address.slice(0, 4)}…${address.slice(-4)}`;
-}
+import { shortAddress } from "../lib/format";
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Wallet connection failed.";
