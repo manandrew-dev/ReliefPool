@@ -1,4 +1,5 @@
 import { AgreedTermsCard } from "./components/AgreedTermsCard";
+import { ContributorsList } from "./components/ContributorsList";
 import { HealthIndicator } from "./components/HealthIndicator";
 import { MockBadge } from "./components/MockBadge";
 import { NetworkBanner } from "./components/NetworkBanner";
@@ -30,6 +31,7 @@ export default function App() {
         <PoolSummary data={poolData} />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <AgreedTermsCard data={poolData} />
+          <ContributorsList data={poolData} networkProblem={networkProblem} />
         </div>
       </main>
     </>

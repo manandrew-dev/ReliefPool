@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  explorerTxUrl,
   formatBpsAsPercent,
   formatLamportsAsSol,
   formatRelativeTime,
   labelFor,
   parseSolToLamports,
+  shareOfTotalBps,
   shortAddress,
 } from "./format";
 
@@ -161,5 +163,25 @@ describe("formatRelativeTime", () => {
     ["2026-10-01T18:00:00Z", "2 d ago"],
   ])("formats %s as %j", (iso, expected) => {
     expect(formatRelativeTime(iso, now)).toBe(expected);
+  });
+});
+
+describe("shareOfTotalBps", () => {
+  it.each([
+    [5n, 8n, 6250],
+    [1n, 3n, 3333],
+    [8n, 8n, 10_000],
+    [0n, 8n, 0],
+    [5n, 0n, 0],
+  ])("%s of %s is %d bps", (part, total, expected) => {
+    expect(shareOfTotalBps(part, total)).toBe(expected);
+  });
+});
+
+describe("explorerTxUrl", () => {
+  it("links to the devnet explorer", () => {
+    expect(explorerTxUrl("abc")).toBe(
+      "https://explorer.solana.com/tx/abc?cluster=devnet"
+    );
   });
 });

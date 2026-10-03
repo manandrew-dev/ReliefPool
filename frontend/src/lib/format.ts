@@ -93,3 +93,13 @@ export function formatRelativeTime(
   if (hours < 24) return `${hours} h ago`;
   return `${Math.floor(hours / 24)} d ago`;
 }
+
+export function explorerTxUrl(signature: string): string {
+  return `https://explorer.solana.com/tx/${signature}?cluster=devnet`;
+}
+
+// Share of a total as basis points, rounded down, for formatBpsAsPercent.
+export function shareOfTotalBps(part: bigint, total: bigint): number {
+  if (total <= 0n) return 0;
+  return Number((part * 10_000n) / total);
+}

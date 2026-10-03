@@ -2,10 +2,10 @@
 // section 3). With config.oracleMock on, responses come from fixtures.
 
 import { config } from "../config";
+import { explorerTxUrl } from "../lib/format";
 import { applyMockPayout, mockPool, quoteMockPayout } from "../mocks/chain";
 import {
   eventsFixture,
-  explorerTxUrl,
   healthFixture,
   poolFixture,
   scenarioEventFixtures,

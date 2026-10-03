@@ -2,6 +2,7 @@
 // Used by the oracle client while VITE_ORACLE_MOCK is on.
 
 import { config } from "../config";
+import { explorerTxUrl } from "../lib/format";
 import { mockWallets } from "../mocks/wallets";
 import type {
   HealthResponse,
@@ -15,10 +16,6 @@ const THRESHOLD = 70;
 
 const PAID_SIGNATURE =
   "5ae7Q5DpgZ1xWkrT3KRGNAckP4m1GgBJNE8JYLusq5bsrLugBREb3H5PvJPLeRLK";
-
-export function explorerTxUrl(signature: string): string {
-  return `https://explorer.solana.com/tx/${signature}?cluster=devnet`;
-}
 
 export const healthFixture: HealthResponse = {
   status: "ok",
