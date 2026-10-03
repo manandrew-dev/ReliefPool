@@ -11,7 +11,7 @@ before(async () => {
   const { store, chain, classifier, pipeline } = setup();
   const app = createApp({
     config: {
-      corsOrigin: "http://localhost:3000",
+      corsOrigins: ["http://localhost:5173"],
       programId: null,
       poolAddress: null,
       vaultAddress: null,
@@ -49,6 +49,13 @@ test("GET /health", async () => {
     solana: "mock",
     lastFeedPollAt: null,
   });
+});
+
+test("CORS allows the frontend origin only", async () => {
+  const allowed = await fetch(`${base}/health`, { headers: { Origin: "http://localhost:5173" } });
+  assert.equal(allowed.headers.get("access-control-allow-origin"), "http://localhost:5173");
+  const other = await fetch(`${base}/health`, { headers: { Origin: "http://evil.example" } });
+  assert.equal(other.headers.get("access-control-allow-origin"), null);
 });
 
 test("GET /replay/scenarios lists both outcomes", async () => {

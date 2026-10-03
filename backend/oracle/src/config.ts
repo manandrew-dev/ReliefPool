@@ -22,7 +22,7 @@ export interface Label {
 
 export interface Config {
   port: number;
-  corsOrigin: string;
+  corsOrigins: string[];
   usgsFeedUrl: string;
   pollIntervalMs: number;
   pollEnabled: boolean;
@@ -66,7 +66,11 @@ export function loadConfig(): Config {
   };
   return {
     port: num("PORT", 3001),
-    corsOrigin: str("CORS_ORIGIN", "http://localhost:3000"),
+    // Vite dev server (5173) and preview/Next.js (3000) by default.
+    corsOrigins: str("CORS_ORIGIN", "http://localhost:5173,http://localhost:3000")
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean),
     usgsFeedUrl: str(
       "USGS_FEED_URL",
       "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson",

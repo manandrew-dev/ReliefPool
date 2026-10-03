@@ -49,7 +49,7 @@ Replays are real USGS events, identified by stable USGS IDs (not CSV row numbers
 |---|---|
 | `/health`, `/pool`, `/events`, `/events/:id`, `/replay/scenarios`, `POST /replay` on `http://localhost:3001/api`, matching api.md §3 exactly | Mock version (hardcoded fake data) by hour 2; real data swapped in after that |
 | `fixtures/events.sample.json` covering all four statuses: `scored`, `pending`, `paid`, `failed` | Hour 1 |
-| CORS enabled for `http://localhost:3000` | From day one |
+| CORS enabled for the Vite dev server (`http://localhost:5173`) and `http://localhost:3000` | From day one |
 | Real `programId`, `poolAddress`, `vaultAddress`, region name and bounds, and wallet labels in `GET /pool` | After Alice deploys |
 
 ### I provide to Alice (program)

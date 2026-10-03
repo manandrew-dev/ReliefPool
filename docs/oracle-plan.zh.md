@@ -49,7 +49,7 @@ replay 用的是 USGS 的真实地震，用稳定的 USGS 事件 ID 标识（不
 |---|---|
 | `http://localhost:3001/api` 上的 `/health`、`/pool`、`/events`、`/events/:id`、`/replay/scenarios`、`POST /replay`，格式严格按照 api.md §3 | 第 2 小时前先给 mock 版本（返回写死的假数据），之后逐步换成真实数据 |
 | 一个示例 JSON 文件 `fixtures/events.sample.json`，覆盖 `scored`/`pending`/`paid`/`failed` 四种状态 | 第 1 小时 |
-| 已开启 CORS（允许 `http://localhost:3000`） | 第 1 天起就开启 |
+| 已开启 CORS（允许 Vite 开发服务器 `http://localhost:5173` 和 `http://localhost:3000`） | 第 1 天起就开启 |
 | `GET /pool` 里的 `programId`、`poolAddress`、`vaultAddress`、地区名称和边界、钱包名称标签 | 等 Alice 部署后填入真实值 |
 
 ### 我提供给 Alice（链上程序）

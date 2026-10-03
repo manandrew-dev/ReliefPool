@@ -12,7 +12,7 @@ import type { EventStatus, Scenario } from "./types.js";
 export interface AppDeps {
   config: Pick<
     Config,
-    "corsOrigin" | "programId" | "poolAddress" | "vaultAddress" | "region" | "labels"
+    "corsOrigins" | "programId" | "poolAddress" | "vaultAddress" | "region" | "labels"
   >;
   store: EventStore;
   pipeline: Pipeline;
@@ -81,7 +81,7 @@ export function createApp(deps: AppDeps) {
   });
 
   const app = express();
-  app.use(cors({ origin: config.corsOrigin }));
+  app.use(cors({ origin: config.corsOrigins }));
   app.use(express.json());
   app.use("/api", api);
   app.use((_req, _res, next) => next(new ApiError("INVALID_REQUEST", "Unknown endpoint.")));
