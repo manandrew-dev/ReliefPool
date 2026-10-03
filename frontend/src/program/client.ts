@@ -7,8 +7,16 @@
 // web3.js/Anchor ones it lists: PublicKey -> Address, BN -> bigint. That is
 // what a Codama client renders for Pubkey and u64.
 
-import { toAddress, type WalletSession } from "@solana/client";
-import { mockWallets } from "../mocks/wallets";
+import type { WalletSession } from "@solana/client";
+import {
+  applyMockContribution,
+  mockContributions,
+  mockPool,
+  mockPoolAddress,
+  mockVaultAddress,
+  mockVaultBalance,
+  mockWalletBalance,
+} from "../mocks/chain";
 
 export type Address = WalletSession["account"]["address"];
 
@@ -56,45 +64,7 @@ export class ProgramError extends Error {
   }
 }
 
-// Mock chain state. Totals line up with the oracle fixtures: one 2 SOL
-// payout for replay-major-01, threshold 70.
-const SOL = 1_000_000_000n;
-// Starting balance of every wallet in mock mode.
-const MOCK_WALLET_BALANCE_LAMPORTS = 3n * SOL;
-const VAULT_RENT_EXEMPT_LAMPORTS = 890_880n;
 const MOCK_LATENCY_MS = 150;
-
-const mockPoolAddress = toAddress(mockWallets.pool);
-const mockVaultAddress = toAddress(mockWallets.vault);
-
-const mockPool: Pool = {
-  admin: toAddress(mockWallets.admin),
-  oracle: toAddress(mockWallets.oracle),
-  regionId: 1,
-  threshold: 70,
-  payoutCapLamports: 2n * SOL,
-  responders: [
-    { wallet: toAddress(mockWallets.responderA), shareBps: 6000 },
-    { wallet: toAddress(mockWallets.responderB), shareBps: 4000 },
-  ],
-  totalContributed: 8n * SOL,
-  totalPaidOut: 2n * SOL,
-};
-
-const mockContributions: Contribution[] = [
-  {
-    pool: mockPoolAddress,
-    contributor: toAddress(mockWallets.contributorA),
-    amount: 5n * SOL,
-  },
-  {
-    pool: mockPoolAddress,
-    contributor: toAddress(mockWallets.contributorB),
-    amount: 3n * SOL,
-  },
-];
-
-const mockWalletSpent = new Map<Address, bigint>();
 let mockSignatureCount = 0;
 
 function mockDelay<T>(value: T): Promise<T> {
@@ -126,19 +96,14 @@ export async function getContributions(
 // Lamport balance of the vault, at the address from GET /pool.
 export async function getVaultBalance(vaultAddress: Address): Promise<bigint> {
   assertMockAccount(vaultAddress, mockVaultAddress);
-  return mockDelay(
-    mockPool.totalContributed -
-      mockPool.totalPaidOut +
-      VAULT_RENT_EXEMPT_LAMPORTS
-  );
+  return mockDelay(mockVaultBalance());
 }
 
 // Lamport balance of any wallet, e.g. the connected one before contributing.
 export async function getWalletBalance(
   walletAddress: Address
 ): Promise<bigint> {
-  const spent = mockWalletSpent.get(walletAddress) ?? 0n;
-  return mockDelay(MOCK_WALLET_BALANCE_LAMPORTS - spent);
+  return mockDelay(mockWalletBalance(walletAddress));
 }
 
 // Sends the contribute instruction signed by the connected wallet and
@@ -159,18 +124,7 @@ export async function contribute(
     throw new ProgramError("ZeroAmount", "Contribution must be more than 0.");
   }
 
-  const contributor = wallet.account.address;
-  const existing = mockContributions.find((c) => c.contributor === contributor);
-  if (existing) {
-    existing.amount += amountLamports;
-  } else {
-    mockContributions.push({ pool, contributor, amount: amountLamports });
-  }
-  mockPool.totalContributed += amountLamports;
-  mockWalletSpent.set(
-    contributor,
-    (mockWalletSpent.get(contributor) ?? 0n) + amountLamports
-  );
+  applyMockContribution(wallet.account.address, amountLamports);
 
   mockSignatureCount += 1;
   return mockDelay(`mock-contribute-${mockSignatureCount}`);

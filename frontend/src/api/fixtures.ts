@@ -10,7 +10,8 @@ import type {
   ReplayScenario,
 } from "./types";
 
-export const THRESHOLD = 70;
+// Matches the mock pool's threshold in src/mocks/chain.ts.
+const THRESHOLD = 70;
 
 const PAID_SIGNATURE =
   "5ae7Q5DpgZ1xWkrT3KRGNAckP4m1GgBJNE8JYLusq5bsrLugBREb3H5PvJPLeRLK";

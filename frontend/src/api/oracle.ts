@@ -2,8 +2,8 @@
 // section 3). With config.oracleMock on, responses come from fixtures.
 
 import { config } from "../config";
+import { applyMockPayout, mockPool, quoteMockPayout } from "../mocks/chain";
 import {
-  THRESHOLD,
   eventsFixture,
   explorerTxUrl,
   healthFixture,
@@ -80,14 +80,31 @@ function mockTimestamp(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+// Gross payout quoted for each pending mock event, applied on confirmation.
+const pendingMockPayouts = new Map<string, bigint>();
+
 // Stands in for on-chain confirmation: a payout that was "pending" when
-// POST /replay responded shows as "paid" from the next GET /events on.
+// POST /replay responded shows as "paid" from the next GET /events on, and
+// moves money in the shared mock chain state. If the vault can no longer
+// cover it, the event fails instead.
 function confirmPendingMockPayouts() {
   for (const event of mockEvents) {
-    if (event.status === "pending" && event.payout) {
-      event.status = "paid";
-      event.payout.confirmedAt = mockTimestamp();
+    const gross = pendingMockPayouts.get(event.id);
+    if (event.status !== "pending" || !event.payout || gross === undefined) {
+      continue;
     }
+    pendingMockPayouts.delete(event.id);
+    const paid = applyMockPayout(gross);
+    if (paid === null) {
+      event.status = "failed";
+      event.failureReason =
+        "InsufficientFunds: the vault cannot pay and stay rent-exempt.";
+      event.payout = null;
+      continue;
+    }
+    event.status = "paid";
+    event.payout.amountLamports = Number(paid);
+    event.payout.confirmedAt = mockTimestamp();
   }
 }
 
@@ -180,26 +197,39 @@ function mockReplay({ scenarioId, runId }: ReplayRequest): Promise<QuakeEvent> {
 
   const now = mockTimestamp();
   const { riskScore, ...quake } = scenario;
-  const triggered = riskScore >= THRESHOLD;
+  const threshold = mockPool.threshold;
   const signature = `mock-${id}`;
-  const event: QuakeEvent = {
+  const base: QuakeEvent = {
     id,
     source: "replay",
     ...quake,
     processedAt: now,
     riskScore,
-    threshold: THRESHOLD,
-    status: triggered ? "pending" : "scored",
+    threshold,
+    status: "scored",
     failureReason: null,
-    payout: triggered
-      ? {
+    payout: null,
+  };
+
+  let event: QuakeEvent = base;
+  if (riskScore >= threshold) {
+    const quote = quoteMockPayout();
+    if (quote.ok) {
+      pendingMockPayouts.set(id, quote.gross);
+      event = {
+        ...base,
+        status: "pending",
+        payout: {
           signature,
-          amountLamports: 2000000000,
+          amountLamports: Number(quote.amount),
           explorerUrl: explorerTxUrl(signature),
           confirmedAt: null,
-        }
-      : null,
-  };
+        },
+      };
+    } else {
+      event = { ...base, status: "failed", failureReason: quote.reason };
+    }
+  }
   mockEvents.unshift(event);
   return mockDelay(event);
 }
