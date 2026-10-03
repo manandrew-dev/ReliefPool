@@ -76,6 +76,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 // GET /events calls the same way they would against the real service.
 const mockEvents: QuakeEvent[] = structuredClone(eventsFixture);
 
+function mockTimestamp(): string {
+  return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+// Stands in for on-chain confirmation: a payout that was "pending" when
+// POST /replay responded shows as "paid" from the next GET /events on.
+function confirmPendingMockPayouts() {
+  for (const event of mockEvents) {
+    if (event.status === "pending" && event.payout) {
+      event.status = "paid";
+      event.payout.confirmedAt = mockTimestamp();
+    }
+  }
+}
+
 function mockDelay<T>(value: T): Promise<T> {
   return new Promise((resolve) =>
     setTimeout(() => resolve(structuredClone(value)), MOCK_LATENCY_MS)
@@ -111,6 +126,7 @@ export function getEvents(query: EventsQuery = {}): Promise<EventsResponse> {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
       return mockReject(400, "INVALID_REQUEST", "limit must be 1 to 100.");
     }
+    confirmPendingMockPayouts();
     const events = mockEvents
       .filter((e) => !query.status || e.status === query.status)
       .filter((e) => !query.since || e.processedAt > query.since)
@@ -131,8 +147,11 @@ export function getReplayScenarios(): Promise<ReplayScenariosResponse> {
   return request("/replay/scenarios");
 }
 
-// Resolves with the 202 Accepted QuakeEvent. A replay without runId of an
-// already handled scenario rejects with EVENT_ALREADY_PROCESSED (409).
+// Resolves with the 202 Accepted QuakeEvent, already scored: "scored" below
+// the threshold, "pending" once a payout is submitted, or "failed". The
+// final "paid" status arrives through getEvents() polling (api.md 3.7).
+// A replay without runId of an already handled scenario rejects with
+// EVENT_ALREADY_PROCESSED (409).
 export function postReplay(body: ReplayRequest): Promise<QuakeEvent> {
   if (config.oracleMock) return mockReplay(body);
   return request("/replay", { method: "POST", body: JSON.stringify(body) });
@@ -159,7 +178,7 @@ function mockReplay({ scenarioId, runId }: ReplayRequest): Promise<QuakeEvent> {
     );
   }
 
-  const now = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  const now = mockTimestamp();
   const { riskScore, ...quake } = scenario;
   const triggered = riskScore >= THRESHOLD;
   const signature = `mock-${id}`;
@@ -170,14 +189,14 @@ function mockReplay({ scenarioId, runId }: ReplayRequest): Promise<QuakeEvent> {
     processedAt: now,
     riskScore,
     threshold: THRESHOLD,
-    status: triggered ? "paid" : "scored",
+    status: triggered ? "pending" : "scored",
     failureReason: null,
     payout: triggered
       ? {
           signature,
           amountLamports: 2000000000,
           explorerUrl: explorerTxUrl(signature),
-          confirmedAt: now,
+          confirmedAt: null,
         }
       : null,
   };
