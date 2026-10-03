@@ -1,12 +1,14 @@
 import { useHealth } from "../hooks/useHealth";
 
 const DOT_CLASS = {
+  mock: "bg-amber-500",
   checking: "bg-gray-400",
   online: "bg-green-500",
   offline: "bg-red-500",
 } as const;
 
 const LABEL = {
+  mock: "Mock backend",
   checking: "Checking backend",
   online: "Backend online",
   offline: "Backend offline",
@@ -20,7 +22,9 @@ export function HealthIndicator() {
       ? `Classifier: ${state.health.classifier}, Solana: ${state.health.solana}`
       : state.status === "offline"
         ? state.reason
-        : undefined;
+        : state.status === "mock"
+          ? "VITE_ORACLE_MOCK is on: oracle data comes from fixtures."
+          : undefined;
 
   return (
     <div

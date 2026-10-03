@@ -1,4 +1,5 @@
 import { HealthIndicator } from "./components/HealthIndicator";
+import { MockBadge } from "./components/MockBadge";
 import { WalletButton } from "./components/WalletButton";
 
 export default function App() {
@@ -7,6 +8,7 @@ export default function App() {
       <div className="flex items-center gap-4">
         <h1 className="text-lg font-semibold">ReliefPool</h1>
         <HealthIndicator />
+        <MockBadge />
       </div>
       <WalletButton />
     </header>
