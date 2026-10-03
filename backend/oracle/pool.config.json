@@ -1,0 +1,8 @@
+{
+  "region": {
+    "id": 1,
+    "name": "Japan Pacific Coast",
+    "bounds": { "minLat": 30, "maxLat": 46, "minLon": 135, "maxLon": 150 }
+  },
+  "labels": {}
+}

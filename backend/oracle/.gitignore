@@ -1,0 +1,5 @@
+node_modules/
+.env
+data/
+# Oracle signing key: never commit (NFR-4)
+*keypair*.json
