@@ -1,6 +1,7 @@
 import type { QuakeEvent } from "../api/types";
 import type { EventData } from "../hooks/useEventData";
 import { describeFailureReason } from "../lib/errors";
+import { isNotScored } from "../lib/events";
 import { formatLamportsAsSol, formatRelativeTime } from "../lib/format";
 import { Card } from "./Card";
 import { RiskScoreBar } from "./RiskScoreBar";
@@ -41,7 +42,11 @@ function EventRow({ event }: { event: QuakeEvent }) {
         </div>
       </div>
 
-      <RiskScoreBar score={event.riskScore} threshold={event.threshold} />
+      {isNotScored(event) ? (
+        <p className="text-sm text-muted">Below M5.0, not scored</p>
+      ) : (
+        <RiskScoreBar score={event.riskScore} threshold={event.threshold} />
+      )}
 
       {/* Amounts only once paid: while pending amountLamports is 0
           (api.md 3.1), and a failed payout sent nothing. */}

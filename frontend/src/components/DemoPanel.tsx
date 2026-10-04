@@ -3,6 +3,7 @@ import * as oracle from "../api/oracle";
 import type { QuakeEvent, ReplayScenario } from "../api/types";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { describeError, describeFailureReason } from "../lib/errors";
+import { isNotScored } from "../lib/events";
 import { formatLamportsAsSol } from "../lib/format";
 import { Card } from "./Card";
 import { StatusBadge } from "./StatusBadge";
@@ -24,6 +25,7 @@ function describeEvent(event: QuakeEvent): string {
   const score = event.riskScore;
   switch (event.status) {
     case "scored":
+      if (isNotScored(event)) return "Below M5.0, not scored. No payout.";
       return `Scored ${score}, below the threshold of ${event.threshold}. No payout.`;
     case "pending":
       return `Scored ${score}. Payout submitted, confirming…`;

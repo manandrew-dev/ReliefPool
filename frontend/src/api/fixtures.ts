@@ -54,11 +54,29 @@ export const poolFixture: PoolResponse = {
 // Newest first, as GET /events returns them.
 export const eventsFixture: QuakeEvent[] = [
   {
+    // Below M5.0: never sent to the classifier, so riskScore is 0.
+    id: "us7000abcf",
+    source: "live",
+    time: "2026-10-03T19:02:11Z",
+    processedAt: "2026-10-03T19:02:40Z",
+    magnitude: 4.3,
+    depthKm: 35.0,
+    latitude: 36.92,
+    longitude: 141.35,
+    place: "off the coast of Ibaraki, Japan",
+    riskScore: 0,
+    threshold: THRESHOLD,
+    status: "scored",
+    failureReason: null,
+    payout: null,
+  },
+  {
     id: "us7000abcd",
     source: "live",
     time: "2026-10-03T18:55:02Z",
     processedAt: "2026-10-03T18:55:40Z",
-    magnitude: 4.6,
+    // M5.0 or above, so it went to the classifier, which didn't answer.
+    magnitude: 5.4,
     depthKm: 41.2,
     latitude: 37.71,
     longitude: 141.92,
