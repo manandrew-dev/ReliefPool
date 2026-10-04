@@ -127,7 +127,7 @@ describe("shared mock chain state", () => {
     expect(event.status).toBe("failed");
     expect(event.riskScore).toBe(97);
     expect(event.payout).toBeNull();
-    expect(event.failureReason).toMatch(/^InsufficientFunds/);
+    expect(event.failureReason).toBe("InsufficientFunds");
     expect((await snapshot()).vault).toBe(RENT);
   });
 
@@ -203,6 +203,7 @@ describe("shared mock chain state", () => {
     ].filter((e) => e?.status === "failed")[0];
     // The transaction was submitted, so payout stays set, with nothing paid.
     expect(failed?.payout?.amountLamports).toBe(0);
+    expect(failed?.failureReason).toBe("InsufficientFunds");
     expect(failed?.payout?.confirmedAt).toBeNull();
     expect((await snapshot()).vault).toBe(RENT);
   });

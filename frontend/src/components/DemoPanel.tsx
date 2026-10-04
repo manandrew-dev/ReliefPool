@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import * as oracle from "../api/oracle";
 import type { QuakeEvent, ReplayScenario } from "../api/types";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { describeError } from "../lib/errors";
+import { describeError, describeFailureReason } from "../lib/errors";
 import { formatLamportsAsSol } from "../lib/format";
 import { Card } from "./Card";
 import { StatusBadge } from "./StatusBadge";
@@ -30,7 +30,9 @@ function describeEvent(event: QuakeEvent): string {
     case "paid":
       return `Scored ${score}. Paid ${formatLamportsAsSol(event.payout?.amountLamports ?? 0)} SOL to responders.`;
     case "failed":
-      return event.failureReason ?? "Processing failed.";
+      return event.failureReason
+        ? describeFailureReason(event.failureReason)
+        : "Processing failed.";
   }
 }
 

@@ -94,7 +94,7 @@ export function quoteMockPayout(): MockPayoutQuote {
   if (totalBps !== 10_000) {
     return {
       ok: false,
-      reason: "InvalidShares: responder shares do not total 100%.",
+      reason: "InvalidShares",
     };
   }
   const available = vaultLamports - VAULT_RENT_EXEMPT_LAMPORTS;
@@ -106,7 +106,7 @@ export function quoteMockPayout(): MockPayoutQuote {
   if (amount <= 0n) {
     return {
       ok: false,
-      reason: "InsufficientFunds: the vault cannot pay and stay rent-exempt.",
+      reason: "InsufficientFunds",
     };
   }
   return { ok: true, gross, amount };

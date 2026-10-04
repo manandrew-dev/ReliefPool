@@ -104,8 +104,7 @@ function confirmPendingMockPayouts() {
     const paid = applyMockPayout(pending.gross);
     if (paid === null) {
       event.status = "failed";
-      event.failureReason =
-        "InsufficientFunds: the vault cannot pay and stay rent-exempt.";
+      event.failureReason = "InsufficientFunds";
       // The transaction was submitted, so payout stays set (api.md 3.1
       // allows it on "failed"), with amountLamports still 0.
       continue;

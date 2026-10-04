@@ -1,5 +1,6 @@
 import type { QuakeEvent } from "../api/types";
 import type { EventData } from "../hooks/useEventData";
+import { describeFailureReason } from "../lib/errors";
 import { formatLamportsAsSol, formatRelativeTime } from "../lib/format";
 import { Card } from "./Card";
 import { RiskScoreBar } from "./RiskScoreBar";
@@ -51,7 +52,10 @@ function EventRow({ event }: { event: QuakeEvent }) {
         </p>
       )}
       {event.status === "failed" && event.failureReason && (
-        <p className="text-xs text-red-600">{event.failureReason}</p>
+        <p className="text-xs text-red-600">
+          {describeFailureReason(event.failureReason)}{" "}
+          <span className="font-mono opacity-75">{event.failureReason}</span>
+        </p>
       )}
     </li>
   );

@@ -66,7 +66,7 @@ export const eventsFixture: QuakeEvent[] = [
     riskScore: null,
     threshold: THRESHOLD,
     status: "failed",
-    failureReason: "Classifier did not respond.",
+    failureReason: "CLASSIFIER_UNAVAILABLE",
     payout: null,
   },
   {
