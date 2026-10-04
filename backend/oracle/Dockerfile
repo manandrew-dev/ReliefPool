@@ -21,4 +21,4 @@ ENV PORT=3001 \
 EXPOSE 3001
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://localhost:3001/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
-CMD ["npx", "tsx", "src/index.ts"]
+CMD ["node", "--import", "tsx", "src/index.ts"]

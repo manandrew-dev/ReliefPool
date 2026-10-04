@@ -14,6 +14,8 @@ services:
       context: ./backend/oracle
       additional_contexts:
         idl: ./idl
+    # Node as PID 1 ignores SIGTERM, so `docker compose down` would wait out the timeout.
+    init: true
     ports:
       - "3001:3001"
     environment:

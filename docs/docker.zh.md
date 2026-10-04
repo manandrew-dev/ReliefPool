@@ -30,6 +30,8 @@ docker compose -f docker-compose.yml -f docker-compose.devnet.yml up --build
 
 密钥对以只读方式挂载进 oracle 容器，不会被复制进镜像。支付是真实的 devnet 交易，钱从演示池的金库出。
 
+如果找不到密钥文件，Compose 会报错并指出路径（`bind source path does not exist`）。把密钥存到那个位置，再运行一次命令即可。
+
 如果密钥对放在别处，或者要用另一个池子，可以在 shell 里或仓库根目录的 `.env` 文件（已被 gitignore）里设置：
 
 | 变量 | 默认值 |

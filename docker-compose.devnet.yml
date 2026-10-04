@@ -12,4 +12,11 @@ services:
       # Kept apart from mock-chain events, which carry fake signatures.
       DATA_FILE: /app/data/devnet-events.json
     volumes:
-      - ${ORACLE_KEYPAIR:-./backend/oracle/oracle-keypair.json}:/run/secrets/oracle-keypair.json:ro
+      # create_host_path: false makes a missing keypair fail at startup, instead of Docker creating
+      # an empty directory at that path that then blocks saving the real file.
+      - type: bind
+        source: ${ORACLE_KEYPAIR:-./backend/oracle/oracle-keypair.json}
+        target: /run/secrets/oracle-keypair.json
+        read_only: true
+        bind:
+          create_host_path: false

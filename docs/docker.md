@@ -30,6 +30,8 @@ docker compose -f docker-compose.yml -f docker-compose.devnet.yml up --build
 
 The keypair is mounted read-only into the oracle container and never copied into an image. Payouts are real devnet transactions from the demo pool's vault.
 
+If the keypair file is missing, Compose stops with an error that names the path (`bind source path does not exist`). Save the key there and run the command again.
+
 To use a keypair stored elsewhere, or another pool, set these in the shell or in a `.env` file at the repo root (gitignored):
 
 | Variable | Default |
