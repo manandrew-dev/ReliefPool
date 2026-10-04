@@ -98,8 +98,31 @@ export function explorerTxUrl(signature: string): string {
   return `https://explorer.solana.com/tx/${signature}?cluster=devnet`;
 }
 
-// Share of a total as basis points, rounded down, for formatBpsAsPercent.
-export function shareOfTotalBps(part: bigint, total: bigint): number {
-  if (total <= 0n) return 0;
-  return Number((part * 10_000n) / total);
+// Each part's share of the sum, in basis points, for formatBpsAsPercent.
+// Uses the largest-remainder method: every share is its exact value rounded
+// down or up, and the shares always total exactly 10,000 (100%) when the
+// sum is positive. Ties go to the earlier part. All zeros when the sum is 0.
+export function apportionBps(parts: readonly bigint[]): number[] {
+  const total = parts.reduce((sum, part) => sum + part, 0n);
+  if (total <= 0n) return parts.map(() => 0);
+
+  const shares = parts.map((part, index) => ({
+    index,
+    bps: (part * 10_000n) / total,
+    remainder: (part * 10_000n) % total,
+  }));
+  let left = 10_000n - shares.reduce((sum, s) => sum + s.bps, 0n);
+  const byRemainder = [...shares].sort((a, b) =>
+    a.remainder === b.remainder
+      ? a.index - b.index
+      : a.remainder > b.remainder
+        ? -1
+        : 1
+  );
+  for (const share of byRemainder) {
+    if (left <= 0n) break;
+    share.bps += 1n;
+    left -= 1n;
+  }
+  return shares.map((s) => Number(s.bps));
 }

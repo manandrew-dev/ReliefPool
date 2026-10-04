@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  apportionBps,
   explorerTxUrl,
   formatBpsAsPercent,
   formatLamportsAsSol,
   formatRelativeTime,
   labelFor,
   parseSolToLamports,
-  shareOfTotalBps,
   shortAddress,
 } from "./format";
 
@@ -166,15 +166,69 @@ describe("formatRelativeTime", () => {
   });
 });
 
-describe("shareOfTotalBps", () => {
+describe("apportionBps", () => {
+  const SOL = 1_000_000_000n;
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+
+  it("sums to 100% for the contributor split that showed 99.99%", () => {
+    // 5.1 and 3 SOL: rounding each down gave 62.96% + 37.03%.
+    const bps = apportionBps([5_100_000_000n, 3n * SOL]);
+    expect(bps).toEqual([6296, 3704]);
+    expect(bps.map(formatBpsAsPercent)).toEqual(["62.96%", "37.04%"]);
+    expect(sum(bps)).toBe(10_000);
+  });
+
   it.each([
-    [5n, 8n, 6250],
-    [1n, 3n, 3333],
-    [8n, 8n, 10_000],
-    [0n, 8n, 0],
-    [5n, 0n, 0],
-  ])("%s of %s is %d bps", (part, total, expected) => {
-    expect(shareOfTotalBps(part, total)).toBe(expected);
+    [
+      [1n, 1n, 1n],
+      [3334, 3333, 3333],
+    ],
+    [
+      [5n, 3n],
+      [6250, 3750],
+    ],
+    [
+      [2n, 1n],
+      [6667, 3333],
+    ],
+    [
+      [1n, 0n],
+      [10_000, 0],
+    ],
+    [[7n], [10_000]],
+    [
+      [1n, 1n, 1n, 1n, 1n, 1n],
+      [1667, 1667, 1667, 1667, 1666, 1666],
+    ],
+  ])("apportions %s as %s", (parts, expected) => {
+    expect(apportionBps(parts)).toEqual(expected);
+  });
+
+  it("returns zeros when nothing has been contributed", () => {
+    expect(apportionBps([0n, 0n])).toEqual([0, 0]);
+    expect(apportionBps([])).toEqual([]);
+  });
+
+  it("always totals 10,000 and stays within 1 bps of the exact share", () => {
+    let seed = 42;
+    const next = () => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2 ** 31;
+      return seed;
+    };
+    for (let run = 0; run < 500; run++) {
+      const parts = Array.from(
+        { length: 1 + (next() % 8) },
+        () => BigInt(next()) * BigInt(1 + (next() % 1000))
+      );
+      const total = parts.reduce((a, b) => a + b, 0n);
+      const bps = apportionBps(parts);
+      expect(sum(bps)).toBe(10_000);
+      parts.forEach((part, i) => {
+        const floor = Number((part * 10_000n) / total);
+        expect(bps[i] - floor).toBeGreaterThanOrEqual(0);
+        expect(bps[i] - floor).toBeLessThanOrEqual(1);
+      });
+    }
   });
 });
 

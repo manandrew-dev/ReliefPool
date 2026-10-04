@@ -4,10 +4,10 @@ import { useState } from "react";
 import { combineAsync } from "../hooks/useAsyncData";
 import type { PoolData } from "../hooks/usePoolData";
 import {
+  apportionBps,
   formatBpsAsPercent,
   formatLamportsAsSol,
   labelFor,
-  shareOfTotalBps,
 } from "../lib/format";
 import { Card } from "./Card";
 import { ContributeModal } from "./ContributeModal";
@@ -30,7 +30,7 @@ export function ContributorsList({
   const rows = [...(contributions.data ?? [])].sort((a, b) =>
     a.amount === b.amount ? 0 : a.amount > b.amount ? -1 : 1
   );
-  const total = rows.reduce((sum, c) => sum + c.amount, 0n);
+  const sharesBps = apportionBps(rows.map((c) => c.amount));
   const labels = info.data?.labels;
   const poolAddress = info.data?.poolAddress;
 
@@ -61,7 +61,7 @@ export function ContributorsList({
         emptyMessage="No contributions yet. Be the first."
       >
         <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto">
-          {rows.map((c) => (
+          {rows.map((c, i) => (
             <li
               key={c.contributor}
               className={`flex items-center justify-between gap-2 rounded-md px-2 py-1 text-sm ${
@@ -83,7 +83,7 @@ export function ContributorsList({
                   {formatLamportsAsSol(c.amount, 4)} SOL
                 </span>{" "}
                 <span className="text-muted">
-                  ({formatBpsAsPercent(shareOfTotalBps(c.amount, total))})
+                  ({formatBpsAsPercent(sharesBps[i])})
                 </span>
               </span>
             </li>
