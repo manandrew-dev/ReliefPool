@@ -12,6 +12,8 @@ npm install
 npm run dev            # http://localhost:5173
 ```
 
+The dev server always uses port 5173 (`strictPort` in `vite.config.ts`). If something else holds that port, `npm run dev` exits with an error instead of moving to another port. That's deliberate: the oracle's CORS allows only `http://localhost:5173` and `http://localhost:3000` by default (`docs/api.md` section 2), so a different port would fail every API call. Free the port, or add your origin to `CORS_ORIGIN` in the oracle's `.env`.
+
 Other scripts:
 
 | Script          | What it does                                 |
