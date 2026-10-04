@@ -27,11 +27,12 @@ Other scripts:
 
 Set in `.env` (gitignored; copy `.env.example`). Vite reads them at startup, so restart `npm run dev` after a change.
 
-| Variable           | Default                            | Meaning                                                                            |
-| ------------------ | ---------------------------------- | ---------------------------------------------------------------------------------- |
-| `VITE_ORACLE_URL`  | `http://localhost:3001/api`        | Oracle service REST API base URL                                                   |
-| `VITE_ORACLE_MOCK` | on                                 | Serve oracle responses from fixtures. Only the exact value `false` turns this off. |
-| `VITE_PROGRAM_ID`  | `REPLACE_WITH_DEPLOYED_PROGRAM_ID` | ReliefPool program ID on devnet, once deployed                                     |
+| Variable           | Default                            | Meaning                                                                                                      |
+| ------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `VITE_RPC_URL`     | `https://api.devnet.solana.com`    | Solana RPC endpoint. Must be devnet; the hostname has to contain `devnet` or the wrong-network banner shows. |
+| `VITE_ORACLE_URL`  | `http://localhost:3001/api`        | Oracle service REST API base URL                                                                             |
+| `VITE_ORACLE_MOCK` | on                                 | Serve oracle responses from fixtures. Only the exact value `false` turns this off.                           |
+| `VITE_PROGRAM_ID`  | `REPLACE_WITH_DEPLOYED_PROGRAM_ID` | ReliefPool program ID on devnet, once deployed                                                               |
 
 The Solana RPC endpoint is set in `src/providers.tsx` (`https://api.devnet.solana.com`).
 
