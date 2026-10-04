@@ -20,6 +20,7 @@ const PAID_SIGNATURE =
 export const healthFixture: HealthResponse = {
   status: "ok",
   classifier: "ok",
+  classifierModelVersion: "model-v1",
   solana: "ok",
   lastFeedPollAt: "2026-10-03T18:42:00Z",
 };

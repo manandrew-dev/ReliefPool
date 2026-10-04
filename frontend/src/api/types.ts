@@ -32,10 +32,13 @@ export interface Payout {
 }
 
 // GET /health (section 3.2)
+export type DependencyStatus = "ok" | "down" | "mock";
+
 export interface HealthResponse {
   status: string;
-  classifier: string;
-  solana: string;
+  classifier: DependencyStatus;
+  classifierModelVersion: string | null; // null if the classifier is down
+  solana: DependencyStatus;
   lastFeedPollAt: string | null; // null until the first successful USGS poll
 }
 

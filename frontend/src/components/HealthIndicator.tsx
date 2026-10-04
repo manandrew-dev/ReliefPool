@@ -1,34 +1,42 @@
 import { useHealth } from "../hooks/useHealth";
+import { describeHealth } from "../lib/health";
 
 const DOT_CLASS = {
-  mock: "bg-amber-500",
+  ok: "bg-green-500",
+  warning: "bg-amber-500",
   checking: "bg-gray-400",
-  online: "bg-green-500",
   offline: "bg-red-500",
-} as const;
-
-const LABEL = {
-  mock: "Mock backend",
-  checking: "Checking backend",
-  online: "Backend online",
-  offline: "Backend offline",
 } as const;
 
 export function HealthIndicator() {
   const state = useHealth();
 
-  const detail =
-    state.status === "online"
-      ? `Classifier: ${state.health.classifier}, Solana: ${state.health.solana}. ${
-          state.health.lastFeedPollAt
-            ? `Last feed poll: ${new Date(state.health.lastFeedPollAt).toLocaleTimeString()}.`
-            : "No feed poll yet."
-        }`
-      : state.status === "offline"
-        ? state.reason
-        : state.status === "mock"
-          ? "VITE_ORACLE_MOCK is on: oracle data comes from fixtures."
-          : undefined;
+  let dot: keyof typeof DOT_CLASS;
+  let label: string;
+  let detail: string | undefined;
+  switch (state.status) {
+    case "mock":
+      dot = "warning";
+      label = "Mock backend";
+      detail = "VITE_ORACLE_MOCK is on: oracle data comes from fixtures.";
+      break;
+    case "checking":
+      dot = "checking";
+      label = "Checking backend";
+      break;
+    case "offline":
+      dot = "offline";
+      label = "Backend offline";
+      detail = state.reason;
+      break;
+    case "online": {
+      const summary = describeHealth(state.health);
+      dot = summary.tone;
+      label = summary.label;
+      detail = summary.detail;
+      break;
+    }
+  }
 
   return (
     <div
@@ -36,8 +44,8 @@ export function HealthIndicator() {
       title={detail}
       role="status"
     >
-      <span className={`size-2.5 rounded-full ${DOT_CLASS[state.status]}`} />
-      {LABEL[state.status]}
+      <span className={`size-2.5 rounded-full ${DOT_CLASS[dot]}`} />
+      {label}
     </div>
   );
 }
