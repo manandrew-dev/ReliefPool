@@ -1,5 +1,5 @@
 import type { Bounds } from "./config.js";
-import { ChainError, type Chain } from "./chain.js";
+import { ChainError, ChainReadError, type Chain } from "./chain.js";
 import { ClassifierError, type Classifier } from "./classifier.js";
 import { ApiError } from "./errors.js";
 import { inRegion } from "./region.js";
@@ -74,20 +74,15 @@ export class Pipeline {
     return event;
   }
 
-  // After a restart: settle payouts that were in flight.
+  // After a restart: settle payouts that were in flight. A landed transaction goes through
+  // confirm(), so a paid event gets its amount from PayoutRecord and a failed one its program
+  // error name (or TRANSACTION_FAILED). An unknown signature stays pending.
   async recover(): Promise<void> {
     const { store, chain } = this.deps;
     for (const e of store.all()) {
       if (e.status !== "pending" || !e.payout) continue;
       const state = await chain.signatureState(e.payout.signature).catch(() => "unknown" as const);
-      if (state === "confirmed") {
-        store.update(e.id, {
-          status: "paid",
-          payout: { ...e.payout, confirmedAt: e.payout.confirmedAt ?? isoNow() },
-        });
-      } else if (state === "failed") {
-        store.update(e.id, { status: "failed", failureReason: "TRANSACTION_FAILED" });
-      }
+      if (state !== "unknown") await this.confirm(e.id, e.payout.signature, e.payout);
       this.log(`recovered ${e.id}: ${state}`);
     }
   }
@@ -148,13 +143,14 @@ export class Pipeline {
     const scored = { threshold, riskScore };
     if (riskScore < threshold) return done(scored);
 
-    // The program also rejects a repeated event ID; checking first avoids a failed transaction.
-    if (await chain.payoutExists(id)) {
-      return done({ ...scored, status: "failed", failureReason: "PAYOUT_ALREADY_EXISTS" });
-    }
-
+    // From here on a failure keeps riskScore (docs/api.md §3.1), including an RPC error
+    // that is not a program error, which becomes TRANSACTION_FAILED.
     let signature: string;
     try {
+      // The program also rejects a repeated event ID; checking first avoids a failed transaction.
+      if (await chain.payoutExists(id)) {
+        return done({ ...scored, status: "failed", failureReason: "PAYOUT_ALREADY_EXISTS" });
+      }
       signature = await chain.triggerPayout(id, riskScore);
     } catch (err) {
       return done({ ...scored, status: "failed", failureReason: chainErrorName(err) }, err);
@@ -176,6 +172,11 @@ export class Pipeline {
       this.deps.store.update(id, { status: "paid", payout: { ...payout, amountLamports, confirmedAt } });
       this.log(`${id}: paid ${amountLamports} lamports`);
     } catch (err) {
+      if (err instanceof ChainReadError) {
+        // The payout landed; leave it pending so recover() settles it on the next start.
+        this.log(`${id}: ${err.message}; left pending`);
+        return;
+      }
       this.record(this.deps.store.get(id)!, { status: "failed", failureReason: chainErrorName(err) }, err);
     }
   }

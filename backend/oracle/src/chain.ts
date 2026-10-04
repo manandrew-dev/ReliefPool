@@ -17,7 +17,8 @@ export interface Chain {
   payoutExists(eventId: string): Promise<boolean>;
   // Sends trigger_payout and returns the signature without waiting for confirmation.
   triggerPayout(eventId: string, riskScore: number): Promise<string>;
-  // Resolves once confirmed; rejects with a ChainError if the transaction failed.
+  // Resolves once confirmed; rejects with a ChainError if the transaction failed, or a
+  // ChainReadError if it succeeded but PayoutRecord could not be read.
   waitForConfirmation(signature: string, eventId: string): Promise<Confirmation>;
   signatureState(signature: string): Promise<SignatureState>;
   explorerUrl(signature: string): string;
@@ -29,6 +30,10 @@ export class ChainError extends Error {
     super(message ?? errorName);
   }
 }
+
+// The transaction succeeded, but its result could not be read back (an RPC error).
+// The payout did land, so the event must not be marked failed.
+export class ChainReadError extends Error {}
 
 export function devnetExplorerUrl(signature: string): string {
   return `https://explorer.solana.com/tx/${signature}?cluster=devnet`;

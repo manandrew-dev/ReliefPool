@@ -1,10 +1,10 @@
-// Error codes from docs/api.md §2.
+// Error codes from docs/api.md §2. A classifier outage is not one of them: it is a
+// failureReason on a 202 failed event (§3.1).
 export type ErrorCode =
   | "INVALID_REQUEST"
   | "EVENT_NOT_FOUND"
   | "SCENARIO_NOT_FOUND"
   | "EVENT_ALREADY_PROCESSED"
-  | "CLASSIFIER_UNAVAILABLE"
   | "INTERNAL_ERROR";
 
 const STATUS: Record<ErrorCode, number> = {
@@ -12,7 +12,6 @@ const STATUS: Record<ErrorCode, number> = {
   EVENT_NOT_FOUND: 404,
   SCENARIO_NOT_FOUND: 404,
   EVENT_ALREADY_PROCESSED: 409,
-  CLASSIFIER_UNAVAILABLE: 502,
   INTERNAL_ERROR: 500,
 };
 

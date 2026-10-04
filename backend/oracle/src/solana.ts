@@ -11,6 +11,7 @@ import {
 } from "@solana/web3.js";
 import {
   ChainError,
+  ChainReadError,
   devnetExplorerUrl,
   type Chain,
   type Confirmation,
@@ -24,6 +25,8 @@ import type { DependencyStatus } from "./types.js";
 const STATUS_TIMEOUT_MS = 1500;
 // How long to wait for a signature we have no blockhash for (e.g. sent before a restart).
 const POLL_CONFIRM_MS = 60_000;
+// Attempts at reading PayoutRecord after a confirmed payout, one second apart.
+const READ_RETRIES = 3;
 
 export interface SolanaChainOptions {
   rpcUrl: string;
@@ -140,18 +143,20 @@ export class SolanaChain implements Chain {
       failed = (await this.pollSignature(signature)) === "failed";
     }
 
-    const tx = await this.connection.getTransaction(signature, {
-      commitment: "confirmed",
-      maxSupportedTransactionVersion: 0,
-    });
+    // Only used for the error name and block time, so a failed read is not fatal.
+    const tx = await this.connection
+      .getTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 })
+      .catch(() => null);
     if (failed) {
       throw new ChainError(errorNameFromLogs(tx?.meta?.logMessages ?? []) ?? "TRANSACTION_FAILED");
     }
     // PayoutRecord.amount is what the program actually sent (docs/api.md §5.5).
-    const record = (await this.accounts.payoutRecord.fetch(
-      this.payoutRecord(eventId),
-      "confirmed",
-    )) as PayoutRecordAccount;
+    const record = await retry(
+      () => this.accounts.payoutRecord.fetch(this.payoutRecord(eventId), "confirmed"),
+      READ_RETRIES,
+    ).catch((err) => {
+      throw new ChainReadError(`Transaction ${signature} confirmed, but PayoutRecord could not be read: ${(err as Error).message}`);
+    }) as PayoutRecordAccount;
     const blockTime = tx?.blockTime ? new Date(tx.blockTime * 1000) : new Date();
     return {
       confirmedAt: blockTime.toISOString().replace(/\.\d{3}Z$/, "Z"),
@@ -265,6 +270,17 @@ export function loadIdl(path: string): Idl {
 export function loadKeypair(path: string): Keypair {
   const secret = Uint8Array.from(JSON.parse(readFileSync(path, "utf8")) as number[]);
   return Keypair.fromSecretKey(secret);
+}
+
+async function retry<T>(fn: () => Promise<T>, attempts: number): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i >= attempts) throw err;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
