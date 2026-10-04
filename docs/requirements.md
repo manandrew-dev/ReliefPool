@@ -7,7 +7,7 @@
 | **Team** | Andrew, Keith, Khan, Alice |
 | **Tracks** | MLH Best Use of Solana (primary), Enactus SFU UNSDG (secondary) |
 | **Build window** | 24 hours |
-| **Status** | Draft v0.3 |
+| **Status** | Draft v0.4 |
  
 ## 1. Overview
  
@@ -183,7 +183,7 @@ Priority: **M** = must have, **S** = should have, **C** = could have (stretch).
 | Rust and Anchor learning curve stalls the program | High | High | Start from an existing escrow example; one person on it from hour one; if not on devnet by the halfway mark, hardcode responders and drop FR-5 |
 | Classifier is not trained in time or performs poorly | Medium | Medium | Build the rule-based scorer (FR-32) in the first hour behind the same endpoint; timebox training to about three hours; keep the scorer as the fallback |
 | No qualifying live earthquake during the demo | Near certain | High | Demo mode (FR-30) is a must-have |
-| Devnet faucet limits or devnet outage | Medium | Medium | Fund wallets early; record a backup video of a working run |
+| Devnet faucet limits or devnet outage | Medium | Medium | Fund wallets early, following the budget in [api.md](api.md) §5.6; keep the payout cap small (0.1 SOL); record a backup video of a working run |
 | Integration between the three components runs late | Medium | High | Agree on instruction names, arguments, and the event JSON shape in the first hour; build against mocks |
 | Judges challenge the single oracle | High | Low | Acknowledge it up front and describe the multi-oracle design (FR-22) |
  
@@ -211,7 +211,7 @@ The project is demo-ready when this scenario runs end to end on devnet:
  
 - ~~Which region does the demo pool cover?~~ Resolved: **Japan Pacific Coast**, `region_id = 1`, latitude 30 to 46 and longitude 135 to 150. The oracle filters live events to this box, and all demo scenarios fall inside it.
 - ~~What threshold value makes sense given the classifier's output range?~~ Resolved: **70**. See "Threshold decision" below.
-- Does an MVP payout release the per-event cap or the whole vault (less the rent-exempt minimum)? Open; the program owner decides. The oracle reads the actual amount from `PayoutRecord.amount`, so it works either way.
+- Does an MVP payout release the per-event cap or the whole vault (less the rent-exempt minimum)? Open; the program owner decides. The oracle reads the actual amount from `PayoutRecord.amount`, so it works either way. The demo pool's cap (FR-5) is **0.1 SOL**; see [api.md](api.md) §5.6 for the full demo setup.
 - ~~Who owns each component?~~ Resolved: Andrew (frontend), Alice (Solana program and setup script), Khan (oracle service), Keith (classifier).
 
 ### Threshold decision
