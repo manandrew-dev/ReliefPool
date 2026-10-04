@@ -70,9 +70,15 @@ export function ContributeModal({
   const canSubmit =
     lamports !== null && !submitting && !networkProblem && !!wallet;
 
+  // Set synchronously, so a second submit that arrives before React
+  // re-renders (and disables the button) cannot send a second transaction.
+  const inFlight = useRef(false);
+
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (inFlight.current) return;
     if (!canSubmit || !wallet || lamports === null) return;
+    inFlight.current = true;
     setStatus({ kind: "submitting" });
     try {
       const signature = await program.contribute(lamports, {
@@ -84,6 +90,8 @@ export function ContributeModal({
       balance.refresh();
     } catch (err) {
       setStatus({ kind: "error", message: describeError(err) });
+    } finally {
+      inFlight.current = false;
     }
   }
 
