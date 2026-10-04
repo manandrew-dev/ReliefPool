@@ -27,17 +27,17 @@ Other scripts:
 
 Set in `.env` (gitignored; copy `.env.example`). Vite reads them at startup, so restart `npm run dev` after a change.
 
-| Variable           | Default                            | Meaning                                                                                                      |
-| ------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `VITE_RPC_URL`     | `https://api.devnet.solana.com`    | Solana RPC endpoint. Must be devnet; the hostname has to contain `devnet` or the wrong-network banner shows. |
-| `VITE_ORACLE_URL`  | `http://localhost:3001/api`        | Oracle service REST API base URL                                                                             |
-| `VITE_ORACLE_MOCK` | on                                 | Serve oracle responses from fixtures. Only the exact value `false` turns this off.                           |
-| `VITE_PROGRAM_ID`  | `REPLACE_WITH_DEPLOYED_PROGRAM_ID` | ReliefPool program ID on devnet, once deployed                                                               |
+| Variable           | Default                              | Meaning                                                                                                                                                                                |
+| ------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_RPC_URL`     | `https://api.devnet.solana.com`      | Solana RPC endpoint. Must be devnet; the hostname has to contain `devnet` or the wrong-network banner shows.                                                                           |
+| `VITE_ORACLE_URL`  | `http://localhost:3001/api`          | Oracle service REST API base URL                                                                                                                                                       |
+| `VITE_ORACLE_MOCK` | on                                   | Serve oracle responses from fixtures and chain data from the matching mock chain. Only the exact value `false` turns this off, switching to the real oracle and the program on devnet. |
+| `VITE_PROGRAM_ID`  | the address in `idl/reliefpool.json` | ReliefPool program on devnet (`7vBwrt8cAfrNHWNfCddQPRVdhbdKV8VhgP2xgq6qWsj3`). If `GET /pool` reports a different one, the wrong-network banner shows.                                 |
 
-## Use the real oracle service
+## Use the real oracle and program
 
 1. Start the oracle service (see `backend/oracle/`) so it answers at `VITE_ORACLE_URL`, with CORS allowing `http://localhost:5173`.
-2. In `.env`, set `VITE_ORACLE_MOCK=false`.
+2. In `.env`, set `VITE_ORACLE_MOCK=false`. This switches both the oracle and the chain data to the real services: the oracle fixtures hand out mock pool addresses that exist only in the mock chain, so the two are never mixed.
 3. Restart `npm run dev`.
 
 The header dot then reads `GET /health`:
@@ -46,11 +46,11 @@ The header dot then reads `GET /health`:
 - An amber label naming anything down or mocked, for example **Backend: mock chain, payouts aren't real** when the oracle runs without a real chain.
 - **Backend offline** (red) when the oracle doesn't answer within 5 s, or answers with a `status` other than `"ok"`.
 
-The tooltip shows the classifier's model version and the last USGS poll ("No feed poll yet" until the first one). The **Mock data** badge stays while the program client is still mocked; its tooltip says which source is mocked.
+The tooltip shows the classifier's model version and the last USGS poll ("No feed poll yet" until the first one). In mock mode the **Mock data** badge shows; its tooltip says what is mocked.
 
 ## What the dashboard handles from the spec
 
-These follow `docs/api.md` v0.4, mostly the frontend list in section 8:
+These follow `docs/api.md` v0.6, mostly the frontend list in section 8:
 
 - **Pending payouts** show an amber **Confirming…** badge and no amount, because `payout.amountLamports` is `0` until the payout confirms. Amounts appear only on `"paid"` events.
 - **Failure reasons** are bare codes. Each code in section 3.1, and each program error name in section 5.4, is shown as readable text with the code beside it (`src/lib/errors.ts`). An unknown code is shown as it is.
@@ -70,36 +70,20 @@ The mocks match the demo pool in `docs/api.md` section 5.6, so mock mode looks l
 - **Payout amount:** the cap, or less if the vault can't cover it and stay rent-exempt. When nothing is left, the event fails with `InsufficientFunds`.
 - **Reset:** mock state lives in memory (`src/mocks/`), so it resets to the fixtures on every page reload.
 
-## Swap-in checklist
+## Program client
 
-The UI talks to the oracle only through `src/api/oracle.ts` and to the program only through `src/program/client.ts`. Swapping in real services changes those files and nothing else.
+The UI talks to the oracle only through `src/api/oracle.ts` and to the program only through `src/program/client.ts`, which picks the devnet client (`src/program/devnet.ts`) or the mock chain (`src/mocks/`).
 
-### `src/api/oracle.ts` (oracle service)
+`src/program/generated/` is a Kit client generated by Codama from `idl/reliefpool.json`. Don't edit it by hand; after the program's IDL changes, run:
 
-The real HTTP calls are already written; `VITE_ORACLE_MOCK=false` switches to them. The backend must:
+```shell
+npm run codegen
+```
 
-| Function               | Endpoint                | The backend must                                                                                                                                                                                    |
-| ---------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `getHealth()`          | `GET /health`           | Return `status: "ok"` when reachable, `classifier` and `solana` as `"ok"`, `"down"` or `"mock"`, `classifierModelVersion`, and `lastFeedPollAt` (`null` before the first poll).                     |
-| `getPool()`            | `GET /pool`             | Return `poolAddress` and `vaultAddress` (the chain reads depend on them, and `null` shows "Pool not deployed yet"), `cluster: "devnet"`, the region, and wallet labels (may be empty).              |
-| `getEvents(query)`     | `GET /events`           | Return newest first and support `limit` (1 to 100), `status` and `since`. Polled every 4 s.                                                                                                         |
-| `getReplayScenarios()` | `GET /replay/scenarios` | Include at least one scenario below the threshold and one above it, inside the pool's region.                                                                                                       |
-| `postReplay(body)`     | `POST /replay`          | Score before responding and return `202` with the event as `scored`, `pending` (with `amountLamports` `0`) or `failed` (section 3.7). Return `409 EVENT_ALREADY_PROCESSED` for a repeated event ID. |
+The Codama packages are pinned to the releases that generate code for `@solana/kit` 5, which `@solana/client` uses. Newer renderers target Kit 6 and later.
 
-All errors must use the shape in `docs/api.md` section 2, and `failureReason` must be a bare code from section 3.1 or a program error name.
+On devnet:
 
-### `src/program/client.ts` (Solana program)
-
-Generate a Kit client with Codama from the program's committed IDL, then replace each mock body. Keep the exported signatures and types; on-chain values stay `Address` and `bigint`. Use the same devnet RPC as `src/providers.tsx` (`VITE_RPC_URL`). Account seeds are in `docs/api.md` section 5.3.
-
-| Export                                         | The real implementation must                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `isMock`                                       | Become `false`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `getPool(poolAddress)`                         | Fetch and decode the `Pool` account at `poolAddress` (from `GET /pool`). Throw if it does not exist.                                                                                                                                                                                                                                                                                                                                                                            |
-| `getContributions(poolAddress)`                | Fetch every `Contribution` account owned by `VITE_PROGRAM_ID` whose `pool` field equals `poolAddress` (`getProgramAccounts` filtered by the account discriminator and a memcmp on `pool`), decoded.                                                                                                                                                                                                                                                                             |
-| `getVaultBalance(vaultAddress)`                | Return the lamport balance of the vault PDA (`["vault", pool]`) at `vaultAddress`.                                                                                                                                                                                                                                                                                                                                                                                              |
-| `getWalletBalance(walletAddress)`              | Return the wallet's lamport balance. Used only for the Contribute warning; a failure must not block contributing.                                                                                                                                                                                                                                                                                                                                                               |
-| `contribute(amountLamports, { pool, wallet })` | Build the `contribute` instruction with the pool, vault PDA, contribution PDA (`["contribution", pool, contributor]`), contributor and system program. Build the signer with `createWalletTransactionSigner(wallet)` from `@solana/client` and **require `mode === "partial"`**, so the wallet only signs and the app sends through its devnet RPC. Refuse `"send"` mode, where the wallet would send on whatever network it is set to. Resolve with the transaction signature. |
-| `ProgramError`                                 | Map the program's custom error codes from the IDL to the `ProgramErrorCode` names in `docs/api.md` section 5.4, so `src/lib/errors.ts` shows readable messages.                                                                                                                                                                                                                                                                                                                 |
-
-Then remove the `src/mocks/` imports from `src/program/client.ts`. After that, `src/mocks/` serves only the oracle's mock mode in `src/api/oracle.ts`.
+- **Reads:** `getPool` decodes the `Pool` account and checks that the ReliefPool program owns it. `getContributions` uses `getProgramAccounts` filtered by the `Contribution` size, discriminator and pool. Balances use `getBalance`.
+- **Contribute:** builds the `contribute` instruction (the vault and contribution addresses are derived from the pool and the wallet) and simulates it first, so an error such as `ZeroAmount` or a wallet without enough SOL shows without a wallet prompt. The wallet then only signs (`createWalletTransactionSigner`, `mode === "partial"`), and the app sends through its own devnet RPC and polls until the transaction is confirmed. A wallet that can only send is refused, because it would send on whatever network it is set to.
+- **Errors:** the program's custom error codes map to the names in `docs/api.md` section 5.4 (`src/program/transactionErrors.ts`), which `src/lib/errors.ts` turns into readable text.
