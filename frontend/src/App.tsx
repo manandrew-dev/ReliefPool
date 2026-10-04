@@ -1,5 +1,6 @@
 import { AgreedTermsCard } from "./components/AgreedTermsCard";
 import { ContributorsList } from "./components/ContributorsList";
+import { DemoPanel } from "./components/DemoPanel";
 import { EventFeed } from "./components/EventFeed";
 import { HealthIndicator } from "./components/HealthIndicator";
 import { MockBadge } from "./components/MockBadge";
@@ -36,8 +37,12 @@ export default function App() {
           <ContributorsList data={poolData} networkProblem={networkProblem} />
         </div>
         <EventFeed feed={eventData.feed} />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <PayoutHistory payouts={eventData.payouts} />
+          <DemoPanel
+            feedEvents={eventData.feed.data?.events}
+            onReplayed={eventData.refresh}
+          />
         </div>
       </main>
     </>
