@@ -15,7 +15,7 @@ export function RiskScoreBar({
 
   return (
     <div className="flex items-center gap-3" role="img" aria-label={label}>
-      <span className="w-16 shrink-0 text-sm tabular-nums">
+      <span className="w-20 shrink-0 text-sm whitespace-nowrap tabular-nums">
         {score === null ? (
           <span className="text-muted">No score</span>
         ) : (
