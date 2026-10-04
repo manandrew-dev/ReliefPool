@@ -60,3 +60,35 @@ describe("describeHealth", () => {
     expect(summary.detail).toContain("Classifier: mock (rules-v1).");
   });
 });
+
+describe("describeHealth never trusts the top-level status alone", () => {
+  const values = ["ok", "down", "mock", "degraded", undefined] as const;
+
+  it.each(
+    values.flatMap((classifier) =>
+      values.map((solana) => [classifier, solana] as const)
+    )
+  )("classifier %s, solana %s", (classifier, solana) => {
+    const summary = describeHealth({
+      ...healthy,
+      status: "ok",
+      classifier: classifier as HealthResponse["classifier"],
+      solana: solana as HealthResponse["solana"],
+    });
+    const allOk = classifier === "ok" && solana === "ok";
+    expect(summary.tone).toBe(allOk ? "ok" : "warning");
+    expect(summary.label === "Backend online").toBe(allOk);
+    if (classifier === "down")
+      expect(summary.label).toContain("classifier down");
+    if (solana === "down") expect(summary.label).toContain("Solana down");
+    if (classifier === "mock") expect(summary.label).toMatch(/mock classifier/);
+    if (solana === "mock")
+      expect(summary.label).toMatch(/mock (classifier and )?chain/);
+    if (classifier === "degraded" || classifier === undefined) {
+      expect(summary.label).toContain("classifier status unknown");
+    }
+    if (solana === "degraded" || solana === undefined) {
+      expect(summary.label).toContain("Solana status unknown");
+    }
+  });
+});

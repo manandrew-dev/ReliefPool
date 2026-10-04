@@ -1,6 +1,6 @@
 # ReliefPool: API and Interface Spec
 
-Draft v0.4. Companion to `requirements.md`.
+Draft v0.5. Companion to `requirements.md`.
 
 > **Building against this spec? Read [§8 Integration checklist](#8-integration-checklist) first.** It lists, per component, the behaviours that are easy to miss: placeholder values, nullable fields, and on-chain details the oracle depends on.
 
@@ -39,7 +39,7 @@ The frontend talks to the Solana program with `@solana/kit` and a program client
 - **Shares:** basis points; all responders in a pool total 10,000.
 - **Public keys and signatures:** base58 strings.
 - **Timestamps:** ISO 8601 in UTC, for example `2026-10-03T18:42:10Z`.
-- **Event IDs:** strings of at most 32 bytes, because the ID is used as a seed for the payout record's address and Solana caps each seed at 32 bytes.
+- **Event IDs:** strings of at most 32 bytes, because the ID is used as a seed for the payout record's address and Solana caps each seed at 32 bytes. `POST /replay` rejects a longer ID with `400 INVALID_REQUEST` before anything is scored (section 3.7). This check applies only to `POST /replay`.
 - **CORS:** the oracle service allows `http://localhost:5173` (Vite dev server) and `http://localhost:3000` by default. Other origins are set with `CORS_ORIGIN` (comma-separated) in the oracle's `.env`.
 
 ### Errors
@@ -57,11 +57,12 @@ Every error uses the same shape, with a matching HTTP status:
 
 | Status | Code | When |
 |---|---|---|
-| 400 | `INVALID_REQUEST` | Missing or malformed field |
+| 400 | `INVALID_REQUEST` | Missing or malformed field; on `POST /replay`, also an event ID over 32 bytes or a `runId` with characters other than letters, digits, `-` and `_` |
 | 404 | `EVENT_NOT_FOUND`, `SCENARIO_NOT_FOUND` | Unknown ID |
-| 409 | `EVENT_ALREADY_PROCESSED` | Replay of an event ID that was already handled |
-| 502 | `CLASSIFIER_UNAVAILABLE` | Classifier did not respond |
+| 409 | `EVENT_ALREADY_PROCESSED` | `POST /replay` only: the oracle already has that event ID stored, or is still processing it. Nothing is scored |
 | 500 | `INTERNAL_ERROR` | Anything else |
+
+A classifier outage is not an HTTP error. The request still succeeds (`202` for `POST /replay`), and the event comes back with status `"failed"` and `failureReason` `CLASSIFIER_UNAVAILABLE` (section 3.1).
 
 ## 3. Oracle service REST API (frontend ↔ backend)
 
@@ -84,12 +85,13 @@ interface QuakeEvent {
   latitude: number;
   longitude: number;
   place: string;              // human-readable, from USGS
-  riskScore: number | null;   // null only when status is "failed" (scoring failed);
+  riskScore: number | null;   // null only on "failed" events that were never scored
+                              // (classifier failure or SOLANA_UNAVAILABLE); kept on payout failures;
                               // 0 for in-region quakes below M5.0, which are not sent to the classifier
   threshold: number;          // pool threshold at the time of scoring
   status: EventStatus;
   failureReason: string | null; // a bare code (see table below), never a sentence
-  payout: Payout | null;      // set when status is "pending" or "paid"; may stay set on "failed"
+  payout: Payout | null;      // set when "pending" or "paid"; on "failed", set only if a transaction landed
 }
 
 interface Payout {
@@ -102,6 +104,21 @@ interface Payout {
 
 **`amountLamports` is `0` while an event is `"pending"`.** The program decides the amount (cap, or less if the vault is low), so the oracle only knows it once the transaction confirms, usually 1 to 5 seconds later. Show "Confirming…" for pending payouts, never "0 SOL".
 
+**Payout amount.** The program pays `min(cap, vault balance − rent-exempt minimum)`, split by shares, and raises `InsufficientFunds` only when that is 0 (section 5.4). *Pending the program owner's change: the current program raises `InsufficientFunds` whenever the vault holds less than the full cap.*
+
+**Pending ends as `"paid"` or `"failed"`.** Most pending payouts confirm and become `"paid"`. A pending payout can also fail on-chain: for example, two payouts sent close together both pass simulation, the first drains the vault, and the second fails. After an oracle restart, a pending event whose transaction failed becomes `"failed"` with `TRANSACTION_FAILED`.
+
+**Payout failures.** `riskScore` is always kept when the payout fails, and `failureReason` says why. `payout` depends on whether a transaction landed:
+
+| When the payout fails | `status` | `failureReason` | `payout` |
+|---|---|---|---|
+| Rejected when sent: preflight simulation fails (for example `InsufficientFunds` or `BelowThreshold`) | `"failed"` | The program error name | `null`, because no transaction landed |
+| Sent, then fails on-chain | `"pending"` → `"failed"` | The program error name, or `TRANSACTION_FAILED` | Kept: `signature`, `explorerUrl`, `amountLamports` `0`, `confirmedAt` `null` |
+
+**Quakes below M5.0.** An in-region quake below M5.0 is not sent to the classifier. It has status `"scored"`, `riskScore` `0` and `payout` `null`. The oracle reads the pool threshold from the chain before anything else, so if Solana is unreachable, even a small quake comes back `"failed"` with `SOLANA_UNAVAILABLE` and `riskScore` `null`.
+
+**Out-of-region quakes.** Live quakes outside the pool's region are not stored, so they never appear in any response.
+
 `failureReason` values:
 
 | Code | Meaning |
@@ -109,15 +126,21 @@ interface Payout {
 | `CLASSIFIER_UNAVAILABLE` | Classifier did not answer, timed out, or returned 5xx (retried once) |
 | `CLASSIFIER_REJECTED` | Classifier refused the input (4xx) |
 | `CLASSIFIER_INVALID_RESPONSE` | Classifier answered outside the contract in §4 |
-| `SOLANA_UNAVAILABLE` | The oracle could not read the pool threshold from the chain |
-| `PAYOUT_ALREADY_EXISTS` | A payout record for this event ID is already on-chain |
-| `TRANSACTION_FAILED` | The payout transaction failed without a program error name |
+| `SOLANA_UNAVAILABLE` | The oracle could not read the pool threshold from the chain. This is checked before scoring, so `riskScore` is `null`, even for quakes below M5.0 |
+| `PAYOUT_ALREADY_EXISTS` | The oracle has no record of this event ID (for example, its data file was wiped), but a payout record for it is already on-chain. Checked only after scoring, and only when the score is at or above the threshold. Not an HTTP error: it comes on a normal `202` response with status `"failed"` |
+| `TRANSACTION_FAILED` | The payout transaction failed without a program error name, including a pending payout found to have failed after an oracle restart |
 | `INTERNAL_ERROR` | Unexpected oracle error |
-| Program error name, e.g. `InsufficientFunds` | The program rejected `trigger_payout` (§5.4) |
+| Program error name, e.g. `InsufficientFunds` | The program rejected `trigger_payout` (§5.4), either at preflight simulation (`payout` is `null`) or on-chain (`payout` is kept) |
 
 ### 3.2 `GET /health`
 
-Lets the frontend show whether the backend and its dependencies are up. `classifier` and `solana` are `"ok"`, `"down"`, or `"mock"`. `classifierModelVersion` shows which scorer is live (`null` if the classifier is down). `lastFeedPollAt` is `null` until the first successful USGS poll, and stays `null` if polling is switched off.
+Lets the frontend show whether the backend and its dependencies are up.
+
+- `status` is `"ok"`, with HTTP `200`, whenever the oracle process is up, even if a dependency is down. It says nothing about the classifier or Solana.
+- `classifier` and `solana` are each `"ok"`, `"down"`, or `"mock"`.
+- `classifier` is `"down"` when the classifier's `/health` did not answer within 1.5 seconds, returned a non-2xx status, or did not report `status: "ok"`. `classifierModelVersion` is then `null`; otherwise it shows which scorer is live.
+- `solana` is always `"mock"` until the oracle's real chain client is wired up.
+- `lastFeedPollAt` is `null` until the first successful USGS poll, and stays `null` if polling is switched off.
 
 ```json
 {
@@ -157,7 +180,7 @@ Returns what the frontend needs to find the pool on-chain, plus display data tha
 
 ### 3.4 `GET /events`
 
-Returns in-region events, newest first. The frontend polls this every 3 to 5 seconds. Live events outside the region are dropped and never appear here. An event appears only once it has been scored (or has failed), so a live event may take a few seconds to show up after USGS publishes it.
+Returns in-region events, newest first. The frontend polls this every 3 to 5 seconds. Live events outside the region are not stored and never appear here. An event appears only once it has been scored (or has failed), so a live event may take a few seconds to show up after USGS publishes it.
 
 | Query param | Type | Default | Notes |
 |---|---|---|---|
@@ -184,7 +207,7 @@ Returns in-region events, newest first. The frontend polls this every 3 to 5 sec
       "failureReason": null,
       "payout": {
         "signature": "<base58>",
-        "amountLamports": 2000000000,
+        "amountLamports": 100000000,
         "explorerUrl": "https://explorer.solana.com/tx/<signature>?cluster=devnet",
         "confirmedAt": "2026-10-03T18:42:11Z"
       }
@@ -225,15 +248,19 @@ Request:
 ```
 
 - `scenarioId` is required.
-- `runId` is optional. When present, the event ID becomes `<scenarioId>-<runId>`. Without it, a second replay of the same scenario returns `409 EVENT_ALREADY_PROCESSED`, which is the double-payout protection working as intended. Use `runId` for rehearsals so you do not need a new pool each time, and keep the combined ID within 32 bytes.
+- `runId` is optional. When present, the event ID becomes `<scenarioId>-<runId>`. Without it, a second replay of the same scenario returns `409 EVENT_ALREADY_PROCESSED`, which is the double-payout protection working as intended. Use `runId` for rehearsals so you do not need a new pool each time.
+- `runId` may contain only letters, digits, `-` and `_`; anything else returns `400 INVALID_REQUEST`.
+- If the combined event ID is over 32 bytes, the request returns `400 INVALID_REQUEST` before anything is scored.
+- `409 EVENT_ALREADY_PROCESSED` is returned when the oracle already has that event ID stored, or is still processing it. Nothing is scored.
 
 The backend scores the event before responding. Response: `202 Accepted` with the new `QuakeEvent`, already scored:
 
-- `status: "scored"` with `riskScore` set, when the score is below the threshold.
+- `status: "scored"` with `riskScore` set, when the score is below the threshold. A quake below M5.0 is not scored and comes back with `riskScore` `0`.
 - `status: "pending"` with `riskScore` and `payout` set, when the score meets the threshold and the payout transaction has been submitted.
-- `status: "failed"` with `riskScore: null`, when scoring failed (see `failureReason`).
+- `status: "failed"` with `riskScore: null`, when the event could not be scored: a classifier failure, or `SOLANA_UNAVAILABLE`.
+- `status: "failed"` with `riskScore` set and `payout: null`, when the score meets the threshold but the payout is rejected before a transaction lands: a program error name from preflight simulation, or `PAYOUT_ALREADY_EXISTS` when the oracle has no record of the event ID but a payout record for it is already on-chain (section 3.1).
 
-The status is `202`, not `201`, because a payout still confirms later. The frontend sees the final `"paid"` status through its normal polling of `GET /events`, so live and replayed events share one code path.
+The status is `202`, not `201`, because a payout still confirms later. The frontend sees the final status, `"paid"` or `"failed"`, through its normal polling of `GET /events`, so live and replayed events share one code path.
 
 ### 3.8 Stretch: `GET /events/stream`
 
@@ -391,7 +418,7 @@ The frontend and oracle should map these to readable messages.
 | `TooManyResponders` | Registering a sixth responder |
 | `InvalidShares` | Shares do not total 10,000 at payout time |
 | `BelowThreshold` | `risk_score` is under the pool's threshold |
-| `InsufficientFunds` | Vault cannot pay and stay rent-exempt |
+| `InsufficientFunds` | Nothing can be paid: the vault balance minus the rent-exempt minimum is 0. Otherwise the payout is `min(cap, vault balance − rent-exempt minimum)`. *Pending the program owner's change; the current program raises it whenever the vault holds less than the full cap* |
 | `ZeroAmount` | Contribution of 0 lamports |
 
 A repeated event ID needs no custom error: creating a payout record that already exists fails on its own.
@@ -480,7 +507,7 @@ The devnet faucet (https://faucet.solana.com) gives at most 5 SOL per request an
 - ~~Does the backend persist events?~~ Resolved: yes, to a JSON file.
 - Final program ID and pool address, once deployed.
 - `trigger_payout` account list (§5.5): proposed, waiting for the program owner to confirm.
-- Does a payout send the per-event cap or the whole vault (less rent)? The oracle does not depend on it (it reads `PayoutRecord.amount`); the frontend shows "up to" the cap.
+- ~~Does a payout send the per-event cap or the whole vault (less rent)?~~ Resolved: the cap, limited by what the vault can pay while staying rent-exempt (`min(cap, vault balance − rent-exempt minimum)`), with `InsufficientFunds` only when that is 0 (section 5.4). *Pending the program owner's change: the current program raises `InsufficientFunds` whenever the vault holds less than the full cap.* The oracle reads the actual amount from `PayoutRecord.amount` either way.
 
 ## 8. Integration checklist
 
@@ -521,6 +548,20 @@ What each component must handle. Check these before changing code that crosses a
 - [ ] Fund the oracle wallet with about 1 devnet SOL (§5.6).
 - [ ] Serve real addresses and wallet labels in `GET /pool` once the program is deployed.
 - [ ] Replace the mock chain with real `trigger_payout` calls once the IDL is in the repo.
+
+## Changes in v0.5
+
+Behaviours confirmed by the oracle owner, and the payout amount from issue #7.
+
+- **Payout failures (section 3.1):** `riskScore` is always kept. A payout rejected at preflight simulation is `"failed"` with the program error name and `payout: null`; one that fails on-chain goes `"pending"` → `"failed"` and keeps `payout` with `amountLamports` `0`.
+- **Pending outcomes (section 3.1):** a pending event can end as `"paid"` or `"failed"`. After an oracle restart, a pending event whose transaction failed becomes `"failed"` with `TRANSACTION_FAILED`.
+- **Quakes below M5.0 (section 3.1):** status `"scored"`, `riskScore` `0`, `payout` `null`; `SOLANA_UNAVAILABLE` still applies. Live quakes outside the region are not stored.
+- **`GET /health` (section 3.2):** defines `classifier` `"down"` (no answer within 1.5 seconds, a non-2xx status, or `status` other than `"ok"`, with `classifierModelVersion` then `null`). `solana` is `"mock"` until the real chain client is wired up. The top-level `status` stays `"ok"` with HTTP `200` while a dependency is down.
+- **`POST /replay` (sections 2 and 3.7):** an event ID over 32 bytes, or a `runId` with characters other than letters, digits, `-` and `_`, returns `400 INVALID_REQUEST` before anything is scored. `409 EVENT_ALREADY_PROCESSED` is returned only by `POST /replay`.
+- **`PAYOUT_ALREADY_EXISTS` (sections 3.1 and 3.7):** a `failureReason` on a `202` failed event, not an HTTP error.
+- **Error table (section 2):** removed the `502 CLASSIFIER_UNAVAILABLE` row. Classifier outages are reported as a `failureReason` on a `202` failed event.
+- **Payout amount (sections 3.1, 5.4 and 7):** `min(cap, vault balance − rent-exempt minimum)`, with `InsufficientFunds` only when that is 0. Resolves the open question in section 7. Pending the program owner's change.
+- **Section 3.4 example:** `amountLamports` is `100000000` (0.1 SOL), matching the cap in section 5.6.
 
 ## Changes in v0.4
 
