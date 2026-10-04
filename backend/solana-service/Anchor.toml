@@ -5,17 +5,17 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-reliefpool = "2qMKfjQfX6uvW1cUq7AeLGAMssKQuiJNtTDR6bGuxrZ3"
+reliefpool = "7vBwrt8cAfrNHWNfCddQPRVdhbdKV8VhgP2xgq6qWsj3"
 
 [programs.localnet]
-reliefpool = "11111111111111111111111111111111"
+reliefpool = "7vBwrt8cAfrNHWNfCddQPRVdhbdKV8VhgP2xgq6qWsj3"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "Devnet"
+cluster = "Localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "cargo test -p reliefpool"
+test = "npx mocha --import=tsx -t 1000000 tests/**/*.ts"

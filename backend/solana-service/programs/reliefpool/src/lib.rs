@@ -6,7 +6,7 @@ pub mod state;
 
 pub use instructions::*;
 
-declare_id!("2qMKfjQfX6uvW1cUq7AeLGAMssKQuiJNtTDR6bGuxrZ3");
+declare_id!("7vBwrt8cAfrNHWNfCddQPRVdhbdKV8VhgP2xgq6qWsj3");
 
 #[program]
 pub mod reliefpool {
@@ -30,8 +30,8 @@ pub mod reliefpool {
         instructions::register_responder::handler(ctx, wallet, share_bps)
     }
 
-    pub fn contribute(ctx: Context<Contribute>, amount: u64) -> Result<()> {
-        instructions::contribute::handler(ctx, amount)
+    pub fn contribute(ctx: Context<Contribute>, amount_lamports: u64) -> Result<()> {
+        instructions::contribute::handler(ctx, amount_lamports)
     }
 
     pub fn trigger_payout<'info>(

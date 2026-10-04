@@ -1,4 +1,34 @@
-# ReliefPool Anchor Service Implementation Plan
+# ReliefPool program
+
+Anchor 0.30.1 program for the pool, contributions and payouts. Interface: [docs/api.md §5](../../docs/api.md#5-on-chain-interface-solana-program). 中文：[README.zh.md](README.zh.md).
+
+## Toolchain
+
+- Rust stable, plus `nightly-2025-04-15` (Anchor 0.30.1 builds the IDL with it): `rustup toolchain install nightly-2025-04-15`
+- Solana CLI 3.1.10: `sh -c "$(curl -sSfL https://release.anza.xyz/v3.1.10/install)"`
+- Anchor CLI 0.30.1, built with Rust 1.79 (newer compilers fail on the `time` crate):
+  `cargo +1.79.0 install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked`
+- `proc-macro2` is pinned to 1.0.94 in `Cargo.lock`; newer versions break Anchor 0.30.1. Do not `cargo update` it.
+
+## Build, test, deploy
+
+```bash
+npm install
+./scripts/build.sh                 # program + IDL; copies the IDL and types to idl/ at the repo root
+anchor test --skip-build           # 19 tests on a local validator (Anchor.toml targets Localnet)
+./scripts/deploy-devnet.sh         # needs the program keypair, see below
+npx tsx scripts/setup-demo-pool.ts # demo pool from demo-pool.json, on devnet by default
+```
+
+- **Program keypair:** the address in `declare_id!` belongs to `~/.config/solana/reliefpool-program-keypair.json`, held by Khan. Only that keypair can deploy or upgrade the program. Never commit it.
+- **Setup script:** initializes the pool, registers the responders in order, and makes each contribution; a step already done is skipped, so it is safe to rerun. Responder and contributor keypairs are generated in `~/.config/solana/reliefpool-demo/` (outside the repo). A contributor without enough SOL is skipped with its address printed; fund it and run again. At the end it prints the values for `backend/oracle/.env` and the `labels` for `backend/oracle/pool.config.json`.
+- Env for the setup script: `RPC_URL` (default devnet), `ADMIN_KEYPAIR` (default `~/.config/solana/id.json`), `WALLET_DIR`.
+
+## Design notes
+
+The original implementation plan follows.
+
+### ReliefPool Anchor Service Implementation Plan
 
 ## Goal
 

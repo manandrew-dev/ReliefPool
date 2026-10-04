@@ -1,122 +1,76 @@
-use anchor_lang::{
-    prelude::*,
-    solana_program::{program::invoke_signed, system_instruction},
-};
+use anchor_lang::prelude::*;
 
 use crate::{
     errors::ReliefPoolError,
-    state::{PayoutRecord, Pool},
+    state::{PayoutRecord, Pool, Vault, TOTAL_SHARE_BPS},
 };
 
+// Pays min(cap, vault balance − rent-exempt minimum), split by share (docs/api.md §5.4–5.5).
+// Responder wallets come in as writable remaining accounts, in Pool.responders order.
 pub fn handler<'info>(
     ctx: Context<'_, '_, '_, 'info, TriggerPayout<'info>>,
     event_id: String,
     risk_score: u8,
 ) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
+    require!(risk_score >= pool.threshold, ReliefPoolError::BelowThreshold);
 
-    if risk_score < pool.threshold {
-        return err!(ReliefPoolError::BelowThreshold);
+    let total_bps: u32 = pool.responders.iter().map(|r| r.share_bps as u32).sum();
+    require!(total_bps == TOTAL_SHARE_BPS as u32, ReliefPoolError::InvalidShares);
+    let wallets = ctx.remaining_accounts;
+    require!(wallets.len() == pool.responders.len(), ReliefPoolError::InvalidShares);
+    for (account, responder) in wallets.iter().zip(&pool.responders) {
+        require!(
+            account.key() == responder.wallet && account.is_writable,
+            ReliefPoolError::InvalidShares
+        );
     }
 
-    if ctx.remaining_accounts.is_empty() {
-        return err!(ReliefPoolError::InvalidShares);
+    let vault = ctx.accounts.vault.to_account_info();
+    let rent_exempt = Rent::get()?.minimum_balance(vault.data_len());
+    let available = vault.lamports().saturating_sub(rent_exempt);
+    let amount = available.min(pool.payout_cap_lamports);
+    require!(amount > 0, ReliefPoolError::InsufficientFunds);
+
+    // Each responder gets amount × share / 10,000; rounding leftovers stay in the vault.
+    let mut sent = 0_u64;
+    for (account, responder) in wallets.iter().zip(&pool.responders) {
+        let share = (amount as u128 * responder.share_bps as u128 / TOTAL_SHARE_BPS as u128) as u64;
+        **vault.try_borrow_mut_lamports()? -= share;
+        **account.try_borrow_mut_lamports()? += share;
+        sent += share;
     }
-
-    if ctx.accounts.oracle.key() != pool.oracle {
-        return err!(ReliefPoolError::Unauthorized);
-    }
-
-    let vault_info = ctx.accounts.vault.to_account_info();
-    let vault_balance = vault_info.lamports();
-    let payout_cap = pool.payout_cap_lamports;
-    let total_payout = vault_balance.min(payout_cap);
-
-    if vault_balance == 0 || total_payout == 0 {
-        return err!(ReliefPoolError::InsufficientFunds);
-    }
-
-    // Partial payout is allowed when the vault has some funds but is below the configured event cap.
-    // This keeps the transaction valid while still protecting against fully empty vaults.
-
-    let recipient_count = ctx.remaining_accounts.len() as u64;
-    if recipient_count == 0 {
-        return err!(ReliefPoolError::InvalidShares);
-    }
-
-    let mut distributed = 0_u64;
-    let mut payout_amounts = Vec::with_capacity(recipient_count as usize);
-
-    for (index, recipient) in ctx.remaining_accounts.iter().enumerate() {
-        let share = if index == recipient_count as usize - 1 {
-            total_payout - distributed
-        } else {
-            total_payout / recipient_count
-        };
-
-        payout_amounts.push((recipient.key(), share));
-        distributed += share;
-    }
-
-    let vault_bump = ctx.bumps.vault;
-    let pool_key = pool.key();
-    let signer_seeds: [&[u8]; 3] = [b"vault", pool_key.as_ref(), &[vault_bump]];
-
-    for (recipient, amount) in payout_amounts {
-        let recipient_account = ctx
-            .remaining_accounts
-            .iter()
-            .find(|account| account.key() == recipient)
-            .ok_or(ProgramError::InvalidAccountData)?;
-
-        let transfer_ix = system_instruction::transfer(&vault_info.key(), &recipient, amount);
-        let transfer_accounts = [
-            vault_info.clone(),
-            recipient_account.clone(),
-            ctx.accounts.system_program.to_account_info(),
-        ];
-
-        invoke_signed(&transfer_ix, &transfer_accounts, &[&signer_seeds[..]])?;
-    }
-
-    let payout_record = &mut ctx.accounts.payout_record;
-    payout_record.pool = pool.key();
-    payout_record.event_id = event_id;
-    payout_record.risk_score = risk_score;
-    payout_record.amount = total_payout;
-    payout_record.timestamp = Clock::get()?.unix_timestamp;
 
     pool.total_paid_out = pool
         .total_paid_out
-        .checked_add(total_payout)
+        .checked_add(sent)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    msg!(
-        "Distributed {} lamports from the vault to {} recipient wallet(s) for event {}.",
-        total_payout,
-        recipient_count,
-        payout_record.event_id
-    );
+    let record = &mut ctx.accounts.payout_record;
+    record.pool = pool.key();
+    record.event_id = event_id;
+    record.risk_score = risk_score;
+    record.amount = sent;
+    record.timestamp = Clock::get()?.unix_timestamp;
 
+    msg!("Paid {} lamports for event {}", sent, record.event_id);
     Ok(())
 }
 
 #[derive(Accounts)]
 #[instruction(event_id: String)]
 pub struct TriggerPayout<'info> {
-    #[account(mut)]
+    #[account(mut, address = pool.oracle @ ReliefPoolError::Unauthorized)]
     pub oracle: Signer<'info>,
 
     #[account(mut)]
     pub pool: Account<'info, Pool>,
 
-    #[account(
-        mut,
-        seeds = [b"vault", pool.key().as_ref()],
-        bump
-    )]
-    pub vault: AccountInfo<'info>,
+    #[account(mut, seeds = [b"vault", pool.key().as_ref()], bump)]
+    pub vault: Account<'info, Vault>,
 
+    // init fails if the record exists, so an event ID can only be paid once. An event ID over
+    // 32 bytes is rejected here too: Solana cannot derive an address from a seed that long.
     #[account(
         init,
         payer = oracle,
