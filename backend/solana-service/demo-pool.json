@@ -1,0 +1,15 @@
+{
+  "regionId": 1,
+  "threshold": 70,
+  "payoutCapLamports": 100000000,
+  "oracle": "6821zL1nNKcBAPujjagzvvZHcRiXjQYb7CVSV2CfcQwR",
+  "responders": [
+    { "name": "Coastal Relief NGO", "shareBps": 6000 },
+    { "name": "Harbor Rescue Network", "shareBps": 4000 }
+  ],
+  "contributors": [
+    { "name": "Regional Government", "lamports": 500000000 },
+    { "name": "Pacific Aid Fund", "lamports": 500000000 },
+    { "name": "Community Donors", "lamports": 500000000 }
+  ]
+}
