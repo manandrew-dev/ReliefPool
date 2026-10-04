@@ -210,9 +210,35 @@ The project is demo-ready when this scenario runs end to end on devnet:
 ## 13. Open questions
  
 - Which region does the demo pool cover?
-- What threshold value makes sense given the classifier's output range?
+- ~~What threshold value makes sense given the classifier's output range?~~ Resolved: **70**. See "Threshold decision" below.
 - Does an MVP payout release the per-event cap or the whole vault (less the rent-exempt minimum)?
 - Who owns each component?
+
+### Threshold decision
+
+The demo pool pays out when the classifier's risk score is **70 or higher** (`threshold = 70` in `initialize_pool`).
+
+The value was chosen from the classifier's validation data (`model-v1`, logistic regression on magnitude, depth, latitude, and longitude). It was not tuned to make the demo events land on a particular side. On the held-out test set of 795 events (53 tsunamis), the candidate thresholds compare as follows:
+
+| Threshold | Tsunamis caught | False alarms | F1 |
+|---|---|---|---|
+| 50 | 45 / 53 | 96 | 0.46 |
+| 60 | 41 / 53 | 71 | 0.50 |
+| **70** | **38 / 53** | **46** | **0.55** |
+| 80 | 30 / 53 | 32 | 0.52 |
+| 90 | 21 / 53 | 20 | 0.45 |
+
+70 has the best F1, so it gives the best balance between missed tsunamis and false alarms. Lower thresholds roughly double the false alarms, which would drain the pool on events that cause no tsunami. Higher thresholds miss more real tsunamis.
+
+The demo events are held out of training, and with `model-v1` they score as follows:
+
+| Event | USGS ID | Score | Outcome at 70 |
+|---|---|---|---|
+| Hokkaido 2013, M6.9, 107 km deep | `usc000f03a` | 59 | No payout |
+| Fukushima 2022, M7.3 | `us6000h519` | 95 | Payout |
+| Tōhoku 2011, M9.1 | `official20110311054624120_30` | 100 | Payout |
+
+If the model is retrained, rerun this analysis before changing the threshold. Change it only together with the setup script, since the on-chain value is what the oracle and frontend use.
 ## 14. Glossary
  
 - **Parametric:** A payout triggered by a measurable event crossing a preset threshold, with no claims process.

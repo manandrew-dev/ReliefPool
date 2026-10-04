@@ -230,6 +230,8 @@ Not called by the frontend. The full contract is [ReliefPool_ML_Oracle_Interface
 ### `POST /score`
 
 Request: exactly these five fields, all required and never `null`.
+Extra fields, including `time`, are rejected with HTTP 422. Numeric fields must
+be finite; the coordinate bounds below are enforced.
 
 ```json
 {
@@ -270,6 +272,14 @@ Response:
 Rules:
 
 - The classifier only scores. The oracle compares the score with the pool threshold and triggers the payout.
+- Threshold selection belongs to Backend Dev 2. The classifier's offline
+  threshold analysis compares rounded integer risk scores on its ordinary test
+  set; it does not implement a payout cutoff inside `/score`.
+- The authoritative historical demo IDs are `usc000f03a`, `us6000h519`, and
+  `official20110311054624120_30`. Training extracts them from the unchanged
+  merged NOAA/USGS CSV before the ordinary stratified split. They participate
+  only in separate scoring after fitting, never in training, ordinary test
+  evaluation, or threshold analysis. Missing demo IDs cause training to fail.
 - If a required field is missing, the oracle does not invent a value; it waits for the next feed poll or marks the event unscorable.
 - If the classifier rejects a request or is unavailable, the event is marked `failed` and never treated as low risk.
 - Target response time is under 2 seconds.
@@ -304,6 +314,8 @@ This section is the contract the program author builds to.
 | `register_responder` | Admin | `wallet: Pubkey`, `share_bps: u16` | Setup script |
 | `contribute` | Contributor | `amount_lamports: u64` | Frontend |
 | `trigger_payout` | Oracle | `event_id: String`, `risk_score: u8` | Oracle service |
+
+**Demo pool threshold: `threshold = 70`.** The setup script passes this to `initialize_pool`. The chain is the only source of the real value; the oracle and frontend read it from the `Pool` account, and their mocks use 70 to match. Rationale: [requirements.md](requirements.md) §13.
 
 ### 5.2 Accounts
 
@@ -385,5 +397,7 @@ A repeated event ID needs no custom error: creating a payout record that already
 
 - **`POST /replay` (section 3.7):** the backend scores the event before responding, so the `202` response has `status` `"scored"`, `"pending"`, or `"failed"`, and `riskScore` is null only when status is `"failed"` (section 3.1). The final `"paid"` status still arrives through `GET /events` polling.
 - **Classifier API (section 4):** locked to Keith's contract. The request is exactly `eventId`, `magnitude`, `depthKm`, `latitude`, and `longitude`; the response adds `modelVersion` (`rules-v1` or `model-v1`). Classifier failures are reported as `CLASSIFIER_UNAVAILABLE`, `CLASSIFIER_REJECTED`, or `CLASSIFIER_INVALID_RESPONSE`.
+- **Classifier rules (section 4):** extra fields such as `time` are rejected with HTTP 422, threshold selection belongs to the oracle owner, and the three demo event IDs are held out of training.
+- **Pool threshold (section 5.1):** the demo pool uses `threshold = 70`.
 - **`GET /health` (section 3.2):** adds `classifierModelVersion`, and dependency statuses can be `"mock"`.
 - **Client types (sections 1 and 5):** the frontend uses `@solana/kit` and a Codama-generated client, so accounts use `Address` and `bigint` instead of Anchor's `PublicKey` and `BN`. The oracle may use any client that follows the IDL, and the program owner commits the built IDL JSON and keeps it current.
