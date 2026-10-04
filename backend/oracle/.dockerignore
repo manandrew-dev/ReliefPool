@@ -1,0 +1,6 @@
+node_modules/
+data/
+test/
+.env
+*keypair*.json
+.DS_Store

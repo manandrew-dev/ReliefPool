@@ -1,0 +1,46 @@
+# The whole stack with the real classifier and a simulated chain. Needs no keys:
+#   docker compose up --build
+# Then open http://localhost:8080. To use the real program on devnet instead,
+# add docker-compose.devnet.yml (see docs/docker.md).
+
+services:
+  classifier:
+    build: ./backend/classifier
+    ports:
+      - "8000:8000"
+
+  oracle:
+    build:
+      context: ./backend/oracle
+      additional_contexts:
+        idl: ./idl
+    ports:
+      - "3001:3001"
+    environment:
+      CLASSIFIER_URL: http://classifier:8000
+      MOCK_CLASSIFIER: "false"
+      MOCK_CHAIN: "true"
+      # The page is served from the frontend container on port 8080; 5173 keeps `npm run dev` working.
+      CORS_ORIGIN: http://localhost:8080,http://localhost:5173
+      POLL_ENABLED: ${POLL_ENABLED:-true}
+    volumes:
+      - oracle-data:/app/data
+    depends_on:
+      classifier:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Read by the browser, so it points at the oracle's published port on the host.
+        VITE_ORACLE_URL: http://localhost:3001/api
+        VITE_ORACLE_MOCK: "false"
+    ports:
+      - "8080:80"
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+volumes:
+  oracle-data:

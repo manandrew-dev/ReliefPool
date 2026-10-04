@@ -35,12 +35,16 @@ Install:
 No manual installation of the individual dependencies required.
 
 ### Start The Application
-Clone the repository and enter the project directory.
-'''bash
+Clone the repository, enter the project directory, and start the stack:
+```bash
 git clone git@github.com:manandrew-dev/ReliefPool.git
+cd ReliefPool
+docker compose up --build
+```
 
-cd {directory}
-'''
+Open http://localhost:8080. This runs the real classifier with a simulated
+chain and needs no keys. To use the deployed program on devnet, see
+[docs/docker.md](docs/docker.md).
 
 ## Features
 

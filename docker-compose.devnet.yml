@@ -1,0 +1,15 @@
+# Switches the oracle to the real program on devnet (docs/api.md §5.6). Needs the oracle keypair:
+#   docker compose -f docker-compose.yml -f docker-compose.devnet.yml up --build
+# The keypair is mounted read-only and never copied into an image.
+
+services:
+  oracle:
+    environment:
+      MOCK_CHAIN: "false"
+      RPC_URL: ${RPC_URL:-https://api.devnet.solana.com}
+      POOL_ADDRESS: ${POOL_ADDRESS:-5Mf43LGs8F95EE9Ucx2zNhTeC9eKDiYSP2VQZ22dckeV}
+      ORACLE_KEYPAIR_PATH: /run/secrets/oracle-keypair.json
+      # Kept apart from mock-chain events, which carry fake signatures.
+      DATA_FILE: /app/data/devnet-events.json
+    volumes:
+      - ${ORACLE_KEYPAIR:-./backend/oracle/oracle-keypair.json}:/run/secrets/oracle-keypair.json:ro
