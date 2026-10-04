@@ -81,20 +81,27 @@ function mockTimestamp(): string {
 }
 
 // Gross payout quoted for each pending mock event, applied on confirmation.
-const pendingMockPayouts = new Map<string, bigint>();
+// How long a mock payout stays "pending" before GET /events confirms it,
+// roughly a devnet confirmation, so the pending state is visible.
+export const MOCK_CONFIRMATION_MS = 3_000;
+
+const pendingMockPayouts = new Map<
+  string,
+  { gross: bigint; submittedAt: number }
+>();
 
 // Stands in for on-chain confirmation: a payout that was "pending" when
-// POST /replay responded shows as "paid" from the next GET /events on, and
-// moves money in the shared mock chain state. If the vault can no longer
+// POST /replay responded shows as "paid" from the first GET /events at
+// least MOCK_CONFIRMATION_MS later, and moves money in the shared mock
+// chain state. If the vault can no longer
 // cover it, the event fails instead.
 function confirmPendingMockPayouts() {
   for (const event of mockEvents) {
-    const gross = pendingMockPayouts.get(event.id);
-    if (event.status !== "pending" || !event.payout || gross === undefined) {
-      continue;
-    }
+    const pending = pendingMockPayouts.get(event.id);
+    if (event.status !== "pending" || !event.payout || !pending) continue;
+    if (Date.now() - pending.submittedAt < MOCK_CONFIRMATION_MS) continue;
     pendingMockPayouts.delete(event.id);
-    const paid = applyMockPayout(gross);
+    const paid = applyMockPayout(pending.gross);
     if (paid === null) {
       event.status = "failed";
       event.failureReason =
@@ -215,7 +222,10 @@ function mockReplay({ scenarioId, runId }: ReplayRequest): Promise<QuakeEvent> {
   if (riskScore >= threshold) {
     const quote = quoteMockPayout();
     if (quote.ok) {
-      pendingMockPayouts.set(id, quote.gross);
+      pendingMockPayouts.set(id, {
+        gross: quote.gross,
+        submittedAt: Date.now(),
+      });
       event = {
         ...base,
         status: "pending",
