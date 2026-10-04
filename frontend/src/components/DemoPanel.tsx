@@ -2,9 +2,8 @@ import { useRef, useState } from "react";
 import * as oracle from "../api/oracle";
 import type { QuakeEvent, ReplayScenario } from "../api/types";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { describeFailureReason, describeReplayError } from "../lib/errors";
-import { isNotScored } from "../lib/events";
-import { formatLamportsAsSol } from "../lib/format";
+import { describeReplayError, isAlreadyProcessed } from "../lib/errors";
+import { describeEventOutcome } from "../lib/events";
 import {
   MAX_EVENT_ID_BYTES,
   eventIdBytes,
@@ -18,23 +17,6 @@ type Outcome =
   | { kind: "event"; id: string }
   | { kind: "duplicate"; id: string }
   | { kind: "error"; message: string };
-
-function describeEvent(event: QuakeEvent): string {
-  const score = event.riskScore;
-  switch (event.status) {
-    case "scored":
-      if (isNotScored(event)) return "Below M5.0, not scored. No payout.";
-      return `Scored ${score}, below the threshold of ${event.threshold}. No payout.`;
-    case "pending":
-      return `Scored ${score}. Payout submitted, confirming…`;
-    case "paid":
-      return `Scored ${score}. Paid ${formatLamportsAsSol(event.payout?.amountLamports ?? 0)} SOL to responders.`;
-    case "failed":
-      return event.failureReason
-        ? describeFailureReason(event.failureReason)
-        : "Processing failed.";
-  }
-}
 
 // Replays historical earthquakes through the same pipeline as live events
 // (docs/api.md sections 3.6 and 3.7). The result follows the event's live
@@ -74,10 +56,7 @@ export function DemoPanel({
       setOutcome({ kind: "event", id: event.id });
       onReplayed();
     } catch (error) {
-      if (
-        error instanceof oracle.OracleApiError &&
-        error.code === "EVENT_ALREADY_PROCESSED"
-      ) {
+      if (isAlreadyProcessed(error)) {
         setOutcome({ kind: "duplicate", id: eventId });
       } else {
         setOutcome({ kind: "error", message: describeReplayError(error) });
@@ -160,7 +139,7 @@ export function DemoPanel({
                 <span className="truncate font-mono text-xs">{current.id}</span>
                 <StatusBadge status={current.status} />
               </div>
-              <p>{describeEvent(current)}</p>
+              <p>{describeEventOutcome(current)}</p>
             </>
           )}
           {outcome.kind === "duplicate" && (
