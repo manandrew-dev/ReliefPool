@@ -1,6 +1,8 @@
 # ReliefPool: API and Interface Spec
 
-Draft v0.2. Companion to `requirements.md`.
+Draft v0.3. Companion to `requirements.md`.
+
+> **Building against this spec? Read [§8 Integration checklist](#8-integration-checklist) first.** It lists, per component, the behaviours that are easy to miss: placeholder values, nullable fields, and on-chain details the oracle depends on.
 
 ## 1. Who talks to whom
 
@@ -38,7 +40,7 @@ The frontend talks to the Solana program with `@solana/kit` and a program client
 - **Public keys and signatures:** base58 strings.
 - **Timestamps:** ISO 8601 in UTC, for example `2026-10-03T18:42:10Z`.
 - **Event IDs:** strings of at most 32 bytes, because the ID is used as a seed for the payout record's address and Solana caps each seed at 32 bytes.
-- **CORS:** the oracle service allows the frontend's origin.
+- **CORS:** the oracle service allows `http://localhost:5173` (Vite dev server) and `http://localhost:3000` by default. Other origins are set with `CORS_ORIGIN` (comma-separated) in the oracle's `.env`.
 
 ### Errors
 
@@ -73,7 +75,7 @@ type EventStatus =
   | "failed";   // scoring or payout failed; see failureReason
 
 interface QuakeEvent {
-  id: string;                 // USGS event ID, or a scenario ID for replays
+  id: string;                 // USGS event ID, or "<scenarioId>" / "<scenarioId>-<runId>" for replays
   source: "live" | "replay";
   time: string;               // when the earthquake occurred
   processedAt: string;        // when the oracle scored it
@@ -82,30 +84,46 @@ interface QuakeEvent {
   latitude: number;
   longitude: number;
   place: string;              // human-readable, from USGS
-  riskScore: number | null;   // null only when status is "failed" (scoring failed)
+  riskScore: number | null;   // null only when status is "failed" (scoring failed);
+                              // 0 for in-region quakes below M5.0, which are not sent to the classifier
   threshold: number;          // pool threshold at the time of scoring
   status: EventStatus;
-  failureReason: string | null;
-  payout: Payout | null;      // set when status is "pending" or "paid"
+  failureReason: string | null; // a bare code (see table below), never a sentence
+  payout: Payout | null;      // set when status is "pending" or "paid"; may stay set on "failed"
 }
 
 interface Payout {
   signature: string;          // transaction signature
-  amountLamports: number;
+  amountLamports: number;     // 0 while "pending": the real amount is read on-chain after confirmation
   explorerUrl: string;
   confirmedAt: string | null; // null while pending
 }
 ```
 
+**`amountLamports` is `0` while an event is `"pending"`.** The program decides the amount (cap, or less if the vault is low), so the oracle only knows it once the transaction confirms, usually 1 to 5 seconds later. Show "Confirming…" for pending payouts, never "0 SOL".
+
+`failureReason` values:
+
+| Code | Meaning |
+|---|---|
+| `CLASSIFIER_UNAVAILABLE` | Classifier did not answer, timed out, or returned 5xx (retried once) |
+| `CLASSIFIER_REJECTED` | Classifier refused the input (4xx) |
+| `CLASSIFIER_INVALID_RESPONSE` | Classifier answered outside the contract in §4 |
+| `SOLANA_UNAVAILABLE` | The oracle could not read the pool threshold from the chain |
+| `PAYOUT_ALREADY_EXISTS` | A payout record for this event ID is already on-chain |
+| `TRANSACTION_FAILED` | The payout transaction failed without a program error name |
+| `INTERNAL_ERROR` | Unexpected oracle error |
+| Program error name, e.g. `InsufficientFunds` | The program rejected `trigger_payout` (§5.4) |
+
 ### 3.2 `GET /health`
 
-Lets the frontend show whether the backend and its dependencies are up. `classifier` and `solana` are `"ok"`, `"down"`, or `"mock"`. `classifierModelVersion` shows which scorer is live (`null` if the classifier is down).
+Lets the frontend show whether the backend and its dependencies are up. `classifier` and `solana` are `"ok"`, `"down"`, or `"mock"`. `classifierModelVersion` shows which scorer is live (`null` if the classifier is down). `lastFeedPollAt` is `null` until the first successful USGS poll, and stays `null` if polling is switched off.
 
 ```json
 {
   "status": "ok",
   "classifier": "ok",
-  "classifierModelVersion": "rules-v1",
+  "classifierModelVersion": "model-v1",
   "solana": "ok",
   "lastFeedPollAt": "2026-10-03T18:42:00Z"
 }
@@ -115,6 +133,10 @@ Lets the frontend show whether the backend and its dependencies are up. `classif
 
 Returns what the frontend needs to find the pool on-chain, plus display data that is not stored on-chain (region name, map bounds, readable names for wallets).
 
+- `programId`, `poolAddress`, and `vaultAddress` are `null` until the program is deployed and the pool is initialized. Type them as `string | null` and skip chain reads while they are `null`.
+- `labels` may be empty (`{}`) until real wallets are known; fall back to a shortened address.
+- `region` is the demo region: id `1`, "Japan Pacific Coast", latitude 30 to 46, longitude 135 to 150. `region.id` must equal the `region_id` passed to `initialize_pool`.
+
 ```json
 {
   "programId": "<base58>",
@@ -123,8 +145,8 @@ Returns what the frontend needs to find the pool on-chain, plus display data tha
   "cluster": "devnet",
   "region": {
     "id": 1,
-    "name": "Example Coast",
-    "bounds": { "minLat": 0, "maxLat": 0, "minLon": 0, "maxLon": 0 }
+    "name": "Japan Pacific Coast",
+    "bounds": { "minLat": 30, "maxLat": 46, "minLon": 135, "maxLon": 150 }
   },
   "labels": {
     "<wallet base58>": { "name": "Coastal Relief NGO", "role": "responder" },
@@ -135,7 +157,7 @@ Returns what the frontend needs to find the pool on-chain, plus display data tha
 
 ### 3.4 `GET /events`
 
-Returns in-region events, newest first. The frontend polls this every 3 to 5 seconds.
+Returns in-region events, newest first. The frontend polls this every 3 to 5 seconds. Live events outside the region are dropped and never appear here. An event appears only once it has been scored (or has failed), so a live event may take a few seconds to show up after USGS publishes it.
 
 | Query param | Type | Default | Notes |
 |---|---|---|---|
@@ -147,7 +169,7 @@ Returns in-region events, newest first. The frontend polls this every 3 to 5 sec
 {
   "events": [
     {
-      "id": "replay-major-01",
+      "id": "tohoku-2011-m91",
       "source": "replay",
       "time": "2011-03-11T05:46:24Z",
       "processedAt": "2026-10-03T18:42:10Z",
@@ -155,8 +177,8 @@ Returns in-region events, newest first. The frontend polls this every 3 to 5 sec
       "depthKm": 29.0,
       "latitude": 38.297,
       "longitude": 142.373,
-      "place": "near the east coast of Honshu, Japan",
-      "riskScore": 97,
+      "place": "2011 Great Tohoku Earthquake, Japan",
+      "riskScore": 100,
       "threshold": 70,
       "status": "paid",
       "failureReason": null,
@@ -177,26 +199,20 @@ Returns one `QuakeEvent`, or `404 EVENT_NOT_FOUND`.
 
 ### 3.6 `GET /replay/scenarios`
 
-Lists the historical earthquakes available for the demo. Include at least one that scores below the threshold and one that scores above it.
+Lists the historical earthquakes available for the demo. Include at least one that scores below the threshold and one that scores above it. Read the IDs from this endpoint; do not hardcode them.
 
 ```json
 {
   "scenarios": [
-    {
-      "id": "replay-minor-01",
-      "label": "Minor offshore quake",
-      "magnitude": 4.8,
-      "expectedOutcome": "no_payout"
-    },
-    {
-      "id": "replay-major-01",
-      "label": "Major subduction quake",
-      "magnitude": 9.1,
-      "expectedOutcome": "payout"
-    }
+    { "id": "jp-2025-m48", "label": "Small offshore quake, too weak to score (M4.8, 2025)", "magnitude": 4.8, "expectedOutcome": "no_payout" },
+    { "id": "jp-2013-m69-deep", "label": "Deep inland quake near Obihiro (M6.9, 107 km, 2013)", "magnitude": 6.9, "expectedOutcome": "no_payout" },
+    { "id": "jp-2022-m73", "label": "Fukushima offshore quake (M7.3, 2022)", "magnitude": 7.3, "expectedOutcome": "payout" },
+    { "id": "tohoku-2011-m91", "label": "Great Tohoku earthquake (M9.1, 2011)", "magnitude": 9.1, "expectedOutcome": "payout" }
   ]
 }
 ```
+
+These are real USGS events (`us6000q4y3`, `usc000f03a`, `us6000h519`, `official20110311054624120_30`). `expectedOutcome` is what the team expects at threshold 70, not a guarantee: the real outcome is whatever the live classifier scores.
 
 ### 3.7 `POST /replay`
 
@@ -205,7 +221,7 @@ Injects a scenario into the same pipeline as a live event.
 Request:
 
 ```json
-{ "scenarioId": "replay-major-01", "runId": "rehearsal-2" }
+{ "scenarioId": "jp-2022-m73", "runId": "rehearsal-2" }
 ```
 
 - `scenarioId` is required.
@@ -317,6 +333,11 @@ This section is the contract the program author builds to.
 
 **Demo pool threshold: `threshold = 70`.** The setup script passes this to `initialize_pool`. The chain is the only source of the real value; the oracle and frontend read it from the `Pool` account, and their mocks use 70 to match. Rationale: [requirements.md](requirements.md) §13.
 
+Other `initialize_pool` values for the demo pool:
+
+- `region_id = 1`, matching `region.id` in `GET /pool`.
+- `oracle = 6821zL1nNKcBAPujjagzvvZHcRiXjQYb7CVSV2CfcQwR` (the oracle service's signing key; the private key stays with the oracle owner).
+
 ### 5.2 Accounts
 
 Shapes as the Codama-generated Kit client returns them. `Address` is a base58 string and `u64` fields arrive as `bigint`; convert before display.
@@ -374,6 +395,31 @@ The frontend and oracle should map these to readable messages.
 
 A repeated event ID needs no custom error: creating a payout record that already exists fails on its own.
 
+The oracle shows these names to users as `failureReason`, so keep them exactly as listed. If you add or rename an error, update this table in the same change.
+
+### 5.5 `trigger_payout` call from the oracle
+
+**Proposed; the program owner confirms or corrects it.** The oracle is built to this shape and needs every item to match.
+
+```ts
+program.methods
+  .triggerPayout(eventId, riskScore)       // event_id: String (≤ 32 bytes), risk_score: u8
+  .accounts({
+    pool,                                  // PDA ["pool", admin, region_id]
+    vault,                                 // PDA ["vault", pool]
+    payoutRecord,                          // PDA ["payout", pool, event_id]; created here (init)
+    oracle,                                // signer; pays rent for payoutRecord
+    systemProgram,
+  })
+  .remainingAccounts(responderWallets);    // writable, same order as pool.responders
+```
+
+- **Seeds:** `region_id` is a `u16` in little-endian (2 bytes). `event_id` is used as raw UTF-8 bytes, at most 32.
+- **Responders:** passed as `remaining_accounts`, writable, in the same order as `Pool.responders`.
+- **Rent:** the oracle signer pays rent for the new `PayoutRecord`. The oracle wallet holds devnet SOL for this and for fees.
+- **Amount:** `PayoutRecord.amount` must be the lamports actually sent to responders in total. The oracle reads it after confirmation to fill `payout.amountLamports`, so it does not depend on the payout formula.
+- **Threshold:** the program enforces `risk_score >= threshold` itself (`BelowThreshold`), even though the oracle checks first.
+
 ## 6. Where the frontend gets each thing
 
 | Dashboard element | Source |
@@ -392,6 +438,54 @@ A repeated event ID needs no custom error: creating a payout record that already
 - ~~Which fields does the classifier actually need?~~ Resolved: the five fields in §4.
 - ~~Does the backend persist events?~~ Resolved: yes, to a JSON file.
 - Final program ID and pool address, once deployed.
+- `trigger_payout` account list (§5.5): proposed, waiting for the program owner to confirm.
+- Does a payout send the per-event cap or the whole vault (less rent)? The oracle does not depend on it (it reads `PayoutRecord.amount`); the frontend shows "up to" the cap.
+
+## 8. Integration checklist
+
+What each component must handle. Check these before changing code that crosses a boundary.
+
+**Frontend (Andrew)**
+
+- [ ] While an event is `"pending"`, `payout.amountLamports` is `0`. Show "Confirming…", and show the amount only once it is `"paid"` (§3.1).
+- [ ] `programId`, `poolAddress`, and `vaultAddress` from `GET /pool` are `null` until deploy; `lastFeedPollAt` from `GET /health` is `null` before the first poll. Type them `string | null` (§3.2, §3.3).
+- [ ] `labels` may be empty; fall back to a shortened address (§3.3).
+- [ ] Read replay scenario IDs from `GET /replay/scenarios`; do not hardcode them (§3.6).
+- [ ] `failureReason` is a bare code; map codes to readable text (§3.1 table).
+- [ ] `riskScore` is `null` only on `"failed"` events, and is `0` for quakes below M5.0 that were never sent to the classifier (§3.1).
+- [ ] `POST /replay` returns an already scored event (`"scored"`, `"pending"`, or `"failed"`); a repeat without `runId` returns `409` (§3.7).
+- [ ] The dev server must run on an allowed CORS origin: `localhost:5173` or `localhost:3000` (§2).
+- [ ] Money values (balances, totals, threshold, shares) come from the chain, not from the oracle (§6).
+
+**Program (Alice)**
+
+- [ ] `initialize_pool` for the demo pool: `threshold = 70`, `region_id = 1`, `oracle = 6821zL1nNKcBAPujjagzvvZHcRiXjQYb7CVSV2CfcQwR` (§5.1).
+- [ ] Confirm or correct the `trigger_payout` accounts in §5.5: responders as writable `remaining_accounts` in `Pool.responders` order, and the oracle paying rent for `PayoutRecord`.
+- [ ] Seeds exactly as §5.3, with `region_id` as a little-endian `u16` and `event_id` as raw bytes (≤ 32).
+- [ ] `PayoutRecord.amount` = lamports actually paid out for that event (§5.5).
+- [ ] Error names exactly as §5.4; the oracle shows them to users.
+- [ ] Commit the built IDL to `idl/reliefpool.json` and update it with every interface change (§5).
+- [ ] After deploy, share the program ID, pool address, and vault address so the oracle can serve them from `GET /pool`.
+
+**Classifier (Keith)**
+
+- [ ] Accept exactly the five fields in §4; reject extras with `422`.
+- [ ] Announce before changing `modelVersion` or retraining, so the threshold analysis in [requirements.md](requirements.md) §13 can be rerun.
+
+**Oracle (Khan)**
+
+- [ ] Serve real addresses and wallet labels in `GET /pool` once the program is deployed.
+- [ ] Replace the mock chain with real `trigger_payout` calls once the IDL is in the repo.
+
+## Changes in v0.3
+
+- **Integration checklist (section 8):** new; lists what each component must handle.
+- **Placeholders and nullable fields (sections 3.1 to 3.3):** `amountLamports` is `0` while pending; `programId`, `poolAddress`, `vaultAddress`, and `lastFeedPollAt` can be `null`; `labels` can be empty.
+- **`failureReason` codes (section 3.1):** full list.
+- **Real demo data (sections 3.3 to 3.7):** examples use the Japan Pacific Coast region and the real replay scenario IDs.
+- **`initialize_pool` values (section 5.1):** `region_id = 1` and the oracle public key.
+- **`trigger_payout` call (section 5.5):** proposed accounts, seeds, rent payer, and the meaning of `PayoutRecord.amount`, pending the program owner's confirmation.
+- **CORS (section 2):** default origins are `localhost:5173` and `localhost:3000`.
 
 ## Changes in v0.2
 
