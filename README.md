@@ -6,17 +6,25 @@ to tsunami-related disasters. We use machine learning to assess tsunami risk
 from earthquakes and Solana's high-speed transactions to automatically release
 relief funds when the risk exceeds a set threshold.
 
+## Our Inspiration
+Natural disasters can happen in minutes, and sometimes financial relief can
+take days or even weeks to reach people who need it. We were inspired by this
+gap between the speed of a disaster and the speed of response.
+
 ## Implementation
 
 ### Solana transactions
 
 ### Oracle
-Oracle reads riskScore and compares it with the MIN_MAGNITUDE to determine
-whether a payout should be payed. In an event the classifier breaks, or could
-not respond Oracle would return failed and the payout is never sent.
-Furthermore, to ensure that no payee recieves the money twice, the Oracle
-compares the ID of the earthquake to ensure each one is unique. Lastly, once
-the Oracle confirms everything is in order, a trigger_payout status is changed.
+Oracle reads earthquake's magnitude and compares it with the MIN_MAGNITUDE to
+determine whether event is sent to the classifier. In an event the classifier
+breaks, or could not respond Oracle would return failed and the payout is never
+sent. Furthermore, to ensure that no payee recieves the money twice, the Oracle
+compares the ID of the earthquake to ensure each one is unique. Lastly, the
+Oracle compares the riskScore with the payout threshold to determine whether
+the trigger_payout function should be called. If successful, then the
+trigger_payout is called, and the event's status is changed to pending and paid
+after confirmation.
 
 ### Machine Learning Classifier
 In our Implementation of the classifier, we used USGS earthquakes dataset for
@@ -43,8 +51,38 @@ cd {directory}
 '''
 
 ## Features
-
+- Automatic Disaster Relief Payout
+- Machine Learning Tsunami Risk Classification
+- Real Time Earthquake Monitoring
+- On-chain Relief Pool
+- Automatic Fund Distribution
+- Transparent Contribution and Payouts
+- Duplicate Payout Protection
+- Fail Safe Oracle
+- Historical Earthquake Replay
+- Web Dashboard
+- Solana Wallet Integration
 ## Usage
+- Create a Relief Pool
+- Fund the Pool
+- Monitor earthquakes
+- Assess Tsunami Risk
+- Trigger Relief
+- Distribute funds
+
+## What We Learned
+We learned how to integrate machine learning, real-time earthquake data,
+Solana, and a web application into an end-to-end system. We also gained
+experience working with imbalanced datasets, evaluating ML models beyond
+accuracy, designing APIs between independent components, and collaborating
+under a tight deadline.
+
+## What Challenges You Faced
+Our biggest challenges were combining USGS and NOAA data into a reliable
+training dataset, handling class imbalance in our classifier, and integrating
+the frontend, Oracle, classifier, and Solana program under a tight deadline. We
+also had to balance tsunami detection against false alarms when selecting our
+payout threshold.
 
 ## Visuals
 
