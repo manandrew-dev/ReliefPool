@@ -23,8 +23,18 @@ export function describeHealth(health: HealthResponse): HealthSummary {
   if (health.solana === "mock") mocked.push("chain");
   if (mocked.length > 0) parts.push(`mock ${mocked.join(" and ")}`);
 
+  // The top-level status only says the oracle process is up (api.md 3.2),
+  // so anything other than "ok", "down" or "mock", including a missing
+  // field, is reported rather than counted as healthy.
+  const known = ["ok", "down", "mock"];
+  if (!known.includes(health.classifier))
+    parts.push("classifier status unknown");
+  if (!known.includes(health.solana)) parts.push("Solana status unknown");
+
+  // Online only when both dependencies are exactly "ok".
+  const healthy = health.classifier === "ok" && health.solana === "ok";
   let label = "Backend online";
-  if (parts.length > 0) {
+  if (!healthy) {
     label = `Backend: ${parts.join(", ")}`;
     if (health.solana === "mock") label += ", payouts aren't real";
     else if (health.classifier === "mock") label += ", scores aren't real";
@@ -37,5 +47,5 @@ export function describeHealth(health: HealthResponse): HealthSummary {
     `Classifier: ${dependencyText(health.classifier, health.classifierModelVersion)}. ` +
     `Solana: ${dependencyText(health.solana)}. ${lastPoll}`;
 
-  return { tone: parts.length > 0 ? "warning" : "ok", label, detail };
+  return { tone: healthy ? "ok" : "warning", label, detail };
 }
