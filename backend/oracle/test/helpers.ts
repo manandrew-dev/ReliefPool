@@ -27,7 +27,7 @@ export function setup(opts: { classifier?: Classifier; threshold?: number } = {}
   const store = new EventStore(null);
   const chain = new MockChain({
     threshold: opts.threshold ?? 70,
-    payoutLamports: 1_000_000_000,
+    payoutLamports: 100_000_000,
     confirmMs: 0,
   });
   const classifier = opts.classifier ?? new MockClassifier();

@@ -82,7 +82,7 @@ export function loadConfig(): Config {
     mockClassifier: bool("MOCK_CLASSIFIER", true),
     mockChain: bool("MOCK_CHAIN", true),
     mockThreshold: num("MOCK_THRESHOLD", 70),
-    mockPayoutLamports: num("MOCK_PAYOUT_LAMPORTS", 1_000_000_000),
+    mockPayoutLamports: num("MOCK_PAYOUT_LAMPORTS", 100_000_000),
     mockConfirmMs: num("MOCK_CONFIRM_MS", 1000),
     rpcUrl: str("RPC_URL", "https://api.devnet.solana.com"),
     oracleKeypairPath: str("ORACLE_KEYPAIR_PATH", "./oracle-keypair.json"),

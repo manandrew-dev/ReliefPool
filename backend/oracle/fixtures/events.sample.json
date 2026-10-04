@@ -53,7 +53,7 @@
       "failureReason": null,
       "payout": {
         "signature": "5TM79PA52GwDHkREmBeU7i1C4MGPUJzpF6oyKA4m46FRKVWub3HKqfWfzN2cvtXr5sUih2jw4kkowe8NzHZgTDbw",
-        "amountLamports": 1000000000,
+        "amountLamports": 100000000,
         "explorerUrl": "https://explorer.solana.com/tx/5TM79PA52GwDHkREmBeU7i1C4MGPUJzpF6oyKA4m46FRKVWub3HKqfWfzN2cvtXr5sUih2jw4kkowe8NzHZgTDbw?cluster=devnet",
         "confirmedAt": "2026-10-03T22:46:20Z"
       }

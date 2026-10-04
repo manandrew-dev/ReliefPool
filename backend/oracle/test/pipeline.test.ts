@@ -48,7 +48,7 @@ test("above-threshold replay returns pending, then becomes paid", async () => {
 
   const paid = await settled(store, "jp-2022-m73");
   assert.equal(paid.status, "paid");
-  assert.equal(paid.payout?.amountLamports, 1_000_000_000);
+  assert.equal(paid.payout?.amountLamports, 100_000_000);
   assert.match(paid.payout!.explorerUrl, /cluster=devnet$/);
   assert.ok(paid.payout?.confirmedAt);
 });
