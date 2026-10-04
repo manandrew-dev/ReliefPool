@@ -3,6 +3,7 @@
 
 import { config } from "../config";
 import { explorerTxUrl } from "../lib/format";
+import { MAX_EVENT_ID_BYTES, eventIdBytes, replayEventId } from "../lib/replay";
 import { applyMockPayout, mockPool, quoteMockPayout } from "../mocks/chain";
 import {
   eventsFixture,
@@ -190,8 +191,8 @@ function mockReplay({ scenarioId, runId }: ReplayRequest): Promise<QuakeEvent> {
       `No replay scenario with id '${scenarioId}'.`
     );
   }
-  const id = runId ? `${scenarioId}-${runId}` : scenarioId;
-  if (new TextEncoder().encode(id).length > 32) {
+  const id = replayEventId(scenarioId, runId);
+  if (eventIdBytes(id) > MAX_EVENT_ID_BYTES) {
     return mockReject(400, "INVALID_REQUEST", "Event ID exceeds 32 bytes.");
   }
   if (mockEvents.some((e) => e.id === id)) {

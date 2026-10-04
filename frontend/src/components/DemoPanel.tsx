@@ -5,21 +5,19 @@ import { useAsyncData } from "../hooks/useAsyncData";
 import { describeError, describeFailureReason } from "../lib/errors";
 import { isNotScored } from "../lib/events";
 import { formatLamportsAsSol } from "../lib/format";
+import {
+  MAX_EVENT_ID_BYTES,
+  eventIdBytes,
+  newRunId,
+  replayEventId,
+} from "../lib/replay";
 import { Card } from "./Card";
 import { StatusBadge } from "./StatusBadge";
-
-// Event IDs seed the payout record's address, and Solana caps a seed at
-// 32 bytes (docs/api.md section 2).
-const MAX_EVENT_ID_BYTES = 32;
 
 type Outcome =
   | { kind: "event"; id: string }
   | { kind: "duplicate"; id: string }
   | { kind: "error"; message: string };
-
-function newRunId(): string {
-  return `r${Date.now().toString(36).slice(-6)}`;
-}
 
 function describeEvent(event: QuakeEvent): string {
   const score = event.riskScore;
@@ -59,8 +57,8 @@ export function DemoPanel({
   async function replay(scenario: ReplayScenario) {
     if (inFlight.current) return;
     const runId = freshId ? newRunId() : undefined;
-    const eventId = runId ? `${scenario.id}-${runId}` : scenario.id;
-    if (new TextEncoder().encode(eventId).length > MAX_EVENT_ID_BYTES) {
+    const eventId = replayEventId(scenario.id, runId);
+    if (eventIdBytes(eventId) > MAX_EVENT_ID_BYTES) {
       setOutcome({
         kind: "error",
         message: `Event ID "${eventId}" is longer than ${MAX_EVENT_ID_BYTES} bytes.`,
