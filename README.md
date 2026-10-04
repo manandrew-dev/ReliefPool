@@ -14,6 +14,14 @@ gap between the speed of a disaster and the speed of response.
 ## Implementation
 
 ### Solana transactions
+ReliefPool leverages Solana's high performance network to facilitate fast
+speed, low cost transactions. We picked the Anchor framework for Rust's
+highly efficient compiled code. Our Anchor service receives a request from
+the Oracle service, that is, trigger_payout when the conditions are met,
+and after running a rules check to ensure the vault is able to pay out the
+balance, fires the function to create the transaction between the vault
+wallet populated by donation wallets to admin specified relief group/stakeholder
+wallets.
 
 ### Oracle
 Oracle reads earthquake's magnitude and compares it with the MIN_MAGNITUDE to
