@@ -44,9 +44,25 @@ model achieved 87% accuracy, 84% recall and ROC-AUC score of 0.97.
 ## How to run
 
 ### Prerequisites
-Install:
-- Docker
-- Docker Compose
+The Solana program is already deployed on devnet, so running ReliefPool locally only needs the three off-chain services.
+
+**Required**
+
+- **Git**, to clone the repository.
+- **Node.js 20.19+ or 22.12+** with npm, for the oracle service (`backend/oracle`, Node 20+) and the frontend (`frontend`, Vite 7 needs 20.19+ or 22.12+).
+- **Python 3.10+** with pip, for the classifier (`backend/classifier`; tested on 3.12). Its dependencies are pandas, scikit-learn, joblib, FastAPI and uvicorn (`requirements.txt`). The trained model is committed, so no training step is needed.
+- **Free local ports:** 8000 (classifier), 3001 (oracle) and 5173 (frontend). The frontend always uses 5173, because the oracle's CORS allows only that origin by default.
+- **Internet access** to the USGS earthquake feed and the Solana devnet RPC (`https://api.devnet.solana.com`).
+
+**To use the real program on devnet** (otherwise the oracle simulates the chain)
+
+- The **oracle keypair**, saved as `backend/oracle/oracle-keypair.json`. Only the pool's registered oracle can trigger payouts. The file is gitignored and shared privately.
+- A small amount of **devnet SOL** in the oracle wallet for transaction fees.
+
+**Optional**
+
+- A **Solana browser wallet** (for example Phantom or Solflare) set to devnet, with devnet SOL, to try the Contribute button.
+- To rebuild or redeploy the program (`backend/solana-service`): Rust stable plus `nightly-2025-04-15`, Solana CLI 3.1.10, and Anchor CLI 0.30.1 built with Rust 1.79.
 
 No manual installation of the individual dependencies required.
 
