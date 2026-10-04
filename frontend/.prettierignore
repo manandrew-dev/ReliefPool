@@ -5,3 +5,4 @@ pnpm-lock.yaml
 agent
 pnpm-workspace.yaml
 .vite
+src/program/generated

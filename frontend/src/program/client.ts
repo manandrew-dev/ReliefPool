@@ -1,13 +1,14 @@
 // The only module the UI uses to read and write the ReliefPool program
-// (docs/api.md section 5). Everything here is mocked until the program is
-// deployed (#8); then replace the bodies with the Codama-generated Kit
-// client and keep the exported signatures.
+// (docs/api.md section 5). With VITE_ORACLE_MOCK=false it talks to the
+// program on devnet (./devnet.ts). Otherwise it serves the mock chain in
+// src/mocks/: the oracle fixtures hand out mock pool and vault addresses
+// that only exist there, so oracle and chain are mocked together.
 //
-// Shapes follow docs/api.md section 5.2 with Kit types instead of the
-// web3.js/Anchor ones it lists: PublicKey -> Address, BN -> bigint. That is
-// what a Codama client renders for Pubkey and u64.
+// Shapes follow docs/api.md section 5.2 with Kit types: public keys are
+// Address and u64 values are bigint.
 
 import type { WalletSession } from "@solana/client";
+import { config } from "../config";
 import {
   applyMockContribution,
   mockContributions,
@@ -17,52 +18,25 @@ import {
   mockVaultBalance,
   mockWalletBalance,
 } from "../mocks/chain";
+import * as devnet from "./devnet";
+import {
+  ProgramError,
+  type Address,
+  type Contribution,
+  type Pool,
+} from "./types";
 
-export type Address = WalletSession["account"]["address"];
+export {
+  ProgramError,
+  type Address,
+  type Contribution,
+  type Pool,
+  type ProgramErrorCode,
+  type Responder,
+} from "./types";
 
 // True while this module returns mock data instead of reading the chain.
-export const isMock = true;
-
-export interface Responder {
-  wallet: Address;
-  shareBps: number;
-}
-
-export interface Pool {
-  admin: Address;
-  oracle: Address;
-  regionId: number;
-  threshold: number; // 0 to 100
-  payoutCapLamports: bigint;
-  responders: Responder[]; // max 5
-  totalContributed: bigint;
-  totalPaidOut: bigint;
-}
-
-export interface Contribution {
-  pool: Address;
-  contributor: Address;
-  amount: bigint; // cumulative
-}
-
-// Program errors from docs/api.md section 5.4.
-export type ProgramErrorCode =
-  | "Unauthorized"
-  | "TooManyResponders"
-  | "InvalidShares"
-  | "BelowThreshold"
-  | "InsufficientFunds"
-  | "ZeroAmount";
-
-export class ProgramError extends Error {
-  readonly code: ProgramErrorCode;
-
-  constructor(code: ProgramErrorCode, message: string) {
-    super(message);
-    this.name = "ProgramError";
-    this.code = code;
-  }
-}
+export const isMock = config.oracleMock;
 
 const MOCK_LATENCY_MS = 150;
 let mockSignatureCount = 0;
@@ -81,6 +55,7 @@ function assertMockAccount(actual: Address, expected: Address) {
 
 // Pool account at the address from GET /pool.
 export async function getPool(poolAddress: Address): Promise<Pool> {
+  if (!isMock) return devnet.getPool(poolAddress);
   assertMockAccount(poolAddress, mockPoolAddress);
   return mockDelay(mockPool);
 }
@@ -89,12 +64,14 @@ export async function getPool(poolAddress: Address): Promise<Pool> {
 export async function getContributions(
   poolAddress: Address
 ): Promise<Contribution[]> {
+  if (!isMock) return devnet.getContributions(poolAddress);
   assertMockAccount(poolAddress, mockPoolAddress);
   return mockDelay(mockContributions);
 }
 
 // Lamport balance of the vault, at the address from GET /pool.
 export async function getVaultBalance(vaultAddress: Address): Promise<bigint> {
+  if (!isMock) return devnet.getVaultBalance(vaultAddress);
   assertMockAccount(vaultAddress, mockVaultAddress);
   return mockDelay(mockVaultBalance());
 }
@@ -103,22 +80,18 @@ export async function getVaultBalance(vaultAddress: Address): Promise<bigint> {
 export async function getWalletBalance(
   walletAddress: Address
 ): Promise<bigint> {
+  if (!isMock) return devnet.getWalletBalance(walletAddress);
   return mockDelay(mockWalletBalance(walletAddress));
 }
 
 // Sends the contribute instruction signed by the connected wallet and
-// resolves with the transaction signature.
-//
-// TODO(real client): only sign in the wallet and send through the app's
-// devnet RPC, so a wallet set to mainnet cannot send the transaction there.
-// Build the signer with createWalletTransactionSigner(wallet) from
-// @solana/client and require mode === "partial" (the wallet exposes
-// signTransaction). Refuse mode === "send", where the wallet would send the
-// transaction itself on whatever network it is set to.
+// resolves with the transaction signature. On devnet the wallet only signs
+// and the app sends through its own devnet RPC (see devnet.ts).
 export async function contribute(
   amountLamports: bigint,
   { pool, wallet }: { pool: Address; wallet: WalletSession }
 ): Promise<string> {
+  if (!isMock) return devnet.contribute(amountLamports, { pool, wallet });
   assertMockAccount(pool, mockPoolAddress);
   if (amountLamports <= 0n) {
     throw new ProgramError("ZeroAmount", "Contribution must be more than 0.");
