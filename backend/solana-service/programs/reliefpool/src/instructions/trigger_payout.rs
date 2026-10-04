@@ -32,13 +32,12 @@ pub fn handler<'info>(
     let payout_cap = pool.payout_cap_lamports;
     let total_payout = vault_balance.min(payout_cap);
 
-    if total_payout == 0 {
+    if vault_balance == 0 || total_payout == 0 {
         return err!(ReliefPoolError::InsufficientFunds);
     }
 
-    if vault_balance < total_payout {
-        return err!(ReliefPoolError::InsufficientFunds);
-    }
+    // Partial payout is allowed when the vault has some funds but is below the configured event cap.
+    // This keeps the transaction valid while still protecting against fully empty vaults.
 
     let recipient_count = ctx.remaining_accounts.len() as u64;
     if recipient_count == 0 {
