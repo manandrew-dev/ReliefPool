@@ -7,7 +7,7 @@
 | **Team** | Andrew, Keith, Khan, Alice |
 | **Tracks** | MLH Best Use of Solana (primary), Enactus SFU UNSDG (secondary) |
 | **Build window** | 24 hours |
-| **Status** | Draft v0.2 |
+| **Status** | Draft v0.4 |
  
 ## 1. Overview
  
@@ -183,7 +183,7 @@ Priority: **M** = must have, **S** = should have, **C** = could have (stretch).
 | Rust and Anchor learning curve stalls the program | High | High | Start from an existing escrow example; one person on it from hour one; if not on devnet by the halfway mark, hardcode responders and drop FR-5 |
 | Classifier is not trained in time or performs poorly | Medium | Medium | Build the rule-based scorer (FR-32) in the first hour behind the same endpoint; timebox training to about three hours; keep the scorer as the fallback |
 | No qualifying live earthquake during the demo | Near certain | High | Demo mode (FR-30) is a must-have |
-| Devnet faucet limits or devnet outage | Medium | Medium | Fund wallets early; record a backup video of a working run |
+| Devnet faucet limits or devnet outage | Medium | Medium | Fund wallets early, following the budget in [api.md](api.md) §5.6; keep the payout cap small (0.1 SOL); record a backup video of a working run |
 | Integration between the three components runs late | Medium | High | Agree on instruction names, arguments, and the event JSON shape in the first hour; build against mocks |
 | Judges challenge the single oracle | High | Low | Acknowledge it up front and describe the multi-oracle design (FR-22) |
  
@@ -209,10 +209,42 @@ The project is demo-ready when this scenario runs end to end on devnet:
  
 ## 13. Open questions
  
-- Which region does the demo pool cover?
-- What threshold value makes sense given the classifier's output range?
-- Does an MVP payout release the per-event cap or the whole vault (less the rent-exempt minimum)?
-- Who owns each component?
+- ~~Which region does the demo pool cover?~~ Resolved: **Japan Pacific Coast**, `region_id = 1`, latitude 30 to 46 and longitude 135 to 150. The oracle filters live events to this box, and all demo scenarios fall inside it.
+- ~~What threshold value makes sense given the classifier's output range?~~ Resolved: **70**. See "Threshold decision" below.
+- Does an MVP payout release the per-event cap or the whole vault (less the rent-exempt minimum)? Open; the program owner decides. The oracle reads the actual amount from `PayoutRecord.amount`, so it works either way. The demo pool's cap (FR-5) is **0.1 SOL**; see [api.md](api.md) §5.6 for the full demo setup.
+- ~~Who owns each component?~~ Resolved: Andrew (frontend), Alice (Solana program and setup script), Khan (oracle service), Keith (classifier).
+
+### Threshold decision
+
+The demo pool pays out when the classifier's risk score is **70 or higher** (`threshold = 70` in `initialize_pool`).
+
+The value was chosen from the classifier's validation data (`model-v1`, logistic regression on magnitude, depth, latitude, and longitude). It was not tuned to make the demo events land on a particular side. On the held-out test set of 795 events (53 tsunamis):
+
+| Threshold | Tsunamis caught | False alarms | F1 |
+|---|---|---|---|
+| 50 | 45 / 53 | 96 | 0.46 |
+| 60 | 41 / 53 | 71 | 0.50 |
+| 65 | 41 / 53 | 59 | 0.54 |
+| **70** | **38 / 53** | **46** | **0.55** |
+| 75 | 37 / 53 | 41 | 0.56 |
+| 80 | 30 / 53 | 32 | 0.52 |
+| 90 | 21 / 53 | 20 | 0.45 |
+
+Thresholds from 70 to 80 perform best, and the differences between them are within statistical noise: with only 53 tsunamis in the test set, the 95% range for recall at 70 is roughly 59% to 84%. Choosing the threshold by cross-validation on the training data alone also lands in this range (70 to 90 across folds). Below 70, false alarms rise quickly, which would drain the pool on quakes that cause no tsunami.
+
+We chose 70, the lower end of the range, because for a relief pool a missed tsunami costs more than a false alarm. At 70 the model catches about 72% of tsunami-generating quakes, and about 45% of payouts go to quakes that did generate one.
+
+Known limitation: `model-v1` performs only slightly better than a simple "large and shallow" rule (AUC 0.93 versus 0.92 for magnitude and depth alone). Its value is a calibrated, reproducible score rather than new insight; a non-linear model or plate-boundary features are the natural next step.
+
+The demo events are held out of training, and with `model-v1` they score as follows:
+
+| Event | USGS ID | Score | Outcome at 70 |
+|---|---|---|---|
+| Hokkaido 2013, M6.9, 107 km deep | `usc000f03a` | 59 | No payout |
+| Fukushima 2022, M7.3 | `us6000h519` | 95 | Payout |
+| Tōhoku 2011, M9.1 | `official20110311054624120_30` | 100 | Payout |
+
+If the model is retrained, rerun this analysis before changing the threshold. Change it only together with the setup script, since the on-chain value is what the oracle and frontend use.
 ## 14. Glossary
  
 - **Parametric:** A payout triggered by a measurable event crossing a preset threshold, with no claims process.
