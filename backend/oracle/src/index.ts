@@ -5,6 +5,7 @@ import { loadConfig } from "./config.js";
 import { Pipeline } from "./pipeline.js";
 import { FeedPoller } from "./poller.js";
 import { loadScenarios } from "./scenarios.js";
+import { SolanaChain, checkIdl, loadIdl, loadKeypair } from "./solana.js";
 import { EventStore } from "./store.js";
 
 const config = loadConfig();
@@ -17,7 +18,30 @@ function createChain(): Chain {
       confirmMs: config.mockConfirmMs,
     });
   }
-  throw new Error("MOCK_CHAIN=false needs the Anchor client, which waits on the program IDL.");
+  if (!config.poolAddress) throw new Error("MOCK_CHAIN=false needs POOL_ADDRESS.");
+  const idl = loadIdl(config.idlPath);
+  const problems = checkIdl(idl);
+  if (problems.length) {
+    throw new Error(`The IDL at ${config.idlPath} does not match docs/api.md §5:\n- ${problems.join("\n- ")}`);
+  }
+  const chain = new SolanaChain({
+    rpcUrl: config.rpcUrl,
+    idl,
+    poolAddress: config.poolAddress,
+    oracle: loadKeypair(config.oracleKeypairPath),
+  });
+  const programId = chain.programId.toBase58();
+  const vault = chain.vaultAddress.toBase58();
+  if (config.programId && config.programId !== programId) {
+    throw new Error(`PROGRAM_ID ${config.programId} does not match the IDL address ${programId}.`);
+  }
+  if (config.vaultAddress && config.vaultAddress !== vault) {
+    throw new Error(`VAULT_ADDRESS ${config.vaultAddress} is not the vault PDA of the pool (${vault}).`);
+  }
+  // GET /pool serves these; fill them in when .env leaves them out.
+  config.programId = programId;
+  config.vaultAddress = vault;
+  return chain;
 }
 
 const store = new EventStore(config.dataFile);

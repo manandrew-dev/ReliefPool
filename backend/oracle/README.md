@@ -19,7 +19,7 @@ With no `.env`, the service runs fully mocked: the classifier is a local formula
 | Variable | Default | Meaning |
 |---|---|---|
 | `MOCK_CLASSIFIER` | `true` | `false` calls Keith's service at `CLASSIFIER_URL`; `/health` then shows its `modelVersion` (`rules-v1` or `model-v1`) |
-| `MOCK_CHAIN` | `true` | `false` uses the real program (not wired up yet; waits on the IDL) |
+| `MOCK_CHAIN` | `true` | `false` uses the real program; see [Real program](#real-program) |
 | `POLL_ENABLED` | `true` | Polls the USGS live feed every `POLL_INTERVAL_MS` |
 | `MIN_MAGNITUDE` | `5.0` | In-region quakes below this are stored with score 0 and never scored |
 
@@ -62,6 +62,23 @@ Without a `runId`, a second replay of the same scenario returns `409`. That's th
 
 `GET /pool` returns `null` for `programId`, `poolAddress`, and `vaultAddress` until the program is deployed.
 
+## Real program
+
+With `MOCK_CHAIN=false`, the oracle talks to the deployed program through its IDL ([src/solana.ts](src/solana.ts)). It needs:
+
+| Variable | Meaning |
+|---|---|
+| `IDL_PATH` | The program IDL, default `../../idl/reliefpool.json` (committed by the program owner) |
+| `POOL_ADDRESS` | The demo pool PDA. Required |
+| `PROGRAM_ID`, `VAULT_ADDRESS` | Optional. Taken from the IDL and derived from the pool when empty; if set, they must match |
+| `RPC_URL`, `ORACLE_KEYPAIR_PATH` | Devnet RPC and the oracle signing key |
+
+At startup the oracle checks that the IDL has what it relies on (docs/api.md §5): `trigger_payout(event_id: string, risk_score: u8)` with the accounts `pool`, `vault`, `payout_record`, `oracle`, `system_program`, and `Pool.threshold`, `Pool.responders`, `PayoutRecord.amount`. If anything is missing it exits and lists the mismatches.
+
+Responders are passed as writable remaining accounts in `Pool.responders` order. Payouts are sent with preflight, so a program error such as `InsufficientFunds` fails the event straight away with that name; an error that only shows up on-chain moves the event from `pending` to `failed`.
+
+`test/fixtures/reliefpool.idl.json` is a stand-in IDL shaped like api.md §5, used by the tests until the real one is committed.
+
 ## Oracle key
 
 ```bash
@@ -74,6 +91,6 @@ Never commit `oracle-keypair.json` or `.env`. Share only the public key.
 ## Tests
 
 ```bash
-npm test           # pipeline, store, and HTTP API
+npm test           # pipeline, store, HTTP API, and the program client
 npm run typecheck
 ```

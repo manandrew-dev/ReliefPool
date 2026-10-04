@@ -19,7 +19,7 @@ npm run dev        # http://localhost:3001/api，改代码后自动重启
 | 变量 | 默认值 | 含义 |
 |---|---|---|
 | `MOCK_CLASSIFIER` | `true` | 设为 `false` 时，调用 `CLASSIFIER_URL` 上 Keith 的服务；`/health` 会显示他的 `modelVersion`（`rules-v1` 或 `model-v1`） |
-| `MOCK_CHAIN` | `true` | 设为 `false` 时，使用真实的链上程序（还没接入，要等 IDL） |
+| `MOCK_CHAIN` | `true` | 设为 `false` 时，使用真实的链上程序，见[真实链上程序](#真实链上程序) |
 | `POLL_ENABLED` | `true` | 每隔 `POLL_INTERVAL_MS` 拉取一次 USGS 实时数据 |
 | `MIN_MAGNITUDE` | `5.0` | 区域内震级低于这个值的地震，存为 0 分，不送去打分 |
 
@@ -62,6 +62,23 @@ curl -X POST localhost:3001/api/replay -H 'Content-Type: application/json' \
 
 程序部署之前，`GET /pool` 里的 `programId`、`poolAddress`、`vaultAddress` 都返回 `null`。
 
+## 真实链上程序
+
+设置 `MOCK_CHAIN=false` 后，oracle 通过程序的 IDL 调用已部署的程序（[src/solana.ts](src/solana.ts)）。需要这些配置：
+
+| 变量 | 含义 |
+|---|---|
+| `IDL_PATH` | 程序的 IDL，默认 `../../idl/reliefpool.json`（由程序负责人提交） |
+| `POOL_ADDRESS` | 演示池的 PDA，必填 |
+| `PROGRAM_ID`、`VAULT_ADDRESS` | 可选。留空时，分别从 IDL 读取、由池地址推导；如果填了，必须和推导结果一致 |
+| `RPC_URL`、`ORACLE_KEYPAIR_PATH` | devnet RPC 和 oracle 的签名密钥 |
+
+启动时，oracle 会检查 IDL 是否包含它依赖的内容（docs/api.md §5）：`trigger_payout(event_id: string, risk_score: u8)`，账户为 `pool`、`vault`、`payout_record`、`oracle`、`system_program`，以及 `Pool.threshold`、`Pool.responders`、`PayoutRecord.amount`。缺少任何一项都会直接退出，并列出不一致的地方。
+
+Responder 按 `Pool.responders` 的顺序，作为可写的 remaining accounts 传入。赔付交易会先做预检（preflight），所以 `InsufficientFunds` 这类程序错误会让事件立即变成 `failed`，失败原因就是该错误名；只有上链后才出现的错误，会让事件从 `pending` 变成 `failed`。
+
+`test/fixtures/reliefpool.idl.json` 是按 api.md §5 写的替身 IDL，在真实 IDL 提交之前供测试使用。
+
 ## Oracle 密钥
 
 ```bash
@@ -74,6 +91,6 @@ npm run airdrop    # 领取 devnet SOL 用来付手续费；被限流时请用 h
 ## 测试
 
 ```bash
-npm test           # 测试处理流程、存储和 HTTP 接口
+npm test           # 测试处理流程、存储、HTTP 接口和链上程序客户端
 npm run typecheck
 ```

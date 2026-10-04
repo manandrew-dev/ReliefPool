@@ -35,6 +35,7 @@ export interface Config {
   mockConfirmMs: number;
   rpcUrl: string;
   oracleKeypairPath: string;
+  idlPath: string;
   programId: string | null;
   poolAddress: string | null;
   vaultAddress: string | null;
@@ -86,6 +87,7 @@ export function loadConfig(): Config {
     mockConfirmMs: num("MOCK_CONFIRM_MS", 1000),
     rpcUrl: str("RPC_URL", "https://api.devnet.solana.com"),
     oracleKeypairPath: str("ORACLE_KEYPAIR_PATH", "./oracle-keypair.json"),
+    idlPath: str("IDL_PATH", "../../idl/reliefpool.json"),
     programId: optional("PROGRAM_ID"),
     poolAddress: optional("POOL_ADDRESS"),
     vaultAddress: optional("VAULT_ADDRESS"),
