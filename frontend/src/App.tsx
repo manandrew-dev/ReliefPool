@@ -8,9 +8,17 @@ import { NetworkBanner } from "./components/NetworkBanner";
 import { PayoutHistory } from "./components/PayoutHistory";
 import { PoolSummary } from "./components/PoolSummary";
 import { WalletButton } from "./components/WalletButton";
+import { lazy, Suspense } from "react";
+import { Card } from "./components/Card";
 import { useEventData } from "./hooks/useEventData";
 import { useNetworkProblem } from "./hooks/useNetworkProblem";
 import { usePoolData } from "./hooks/usePoolData";
+
+// Leaflet is large, so the map loads in its own chunk after the rest of the
+// dashboard.
+const EventMap = lazy(() =>
+  import("./components/EventMap").then((m) => ({ default: m.EventMap }))
+);
 
 export default function App() {
   const poolData = usePoolData();
@@ -36,7 +44,14 @@ export default function App() {
           <AgreedTermsCard data={poolData} />
           <ContributorsList data={poolData} networkProblem={networkProblem} />
         </div>
-        <EventFeed feed={eventData.feed} />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Suspense
+            fallback={<Card title="Earthquake map" hasData={false} loading />}
+          >
+            <EventMap poolInfo={poolData.info} feed={eventData.feed} />
+          </Suspense>
+          <EventFeed feed={eventData.feed} />
+        </div>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <PayoutHistory payouts={eventData.payouts} />
           <DemoPanel

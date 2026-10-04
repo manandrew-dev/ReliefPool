@@ -34,8 +34,6 @@ Set in `.env` (gitignored; copy `.env.example`). Vite reads them at startup, so 
 | `VITE_ORACLE_MOCK` | on                                 | Serve oracle responses from fixtures. Only the exact value `false` turns this off.                           |
 | `VITE_PROGRAM_ID`  | `REPLACE_WITH_DEPLOYED_PROGRAM_ID` | ReliefPool program ID on devnet, once deployed                                                               |
 
-The Solana RPC endpoint is set in `src/providers.tsx` (`https://api.devnet.solana.com`).
-
 ## Use the real oracle service
 
 1. Start the oracle service (see `backend/oracle/`) so it answers at `VITE_ORACLE_URL`, with CORS allowing `http://localhost:5173`.
@@ -59,6 +57,7 @@ These follow `docs/api.md` v0.4, mostly the frontend list in section 8:
 - **Quakes below M5.0** have `riskScore` `0` and were never sent to the classifier, so they show **Below M5.0, not scored** instead of a risk bar.
 - **Before deploy**, `GET /pool` returns `null` for `programId`, `poolAddress` and `vaultAddress`. The chain reads stay off and the pool cards show **Pool not deployed yet**, with Contribute disabled.
 - **Replay scenario IDs** are read from `GET /replay/scenarios`, never hardcoded in the UI. Each replay gets a fresh run ID, and the combined event ID stays within 32 bytes (`src/lib/replay.ts`).
+- **Map (FR-29):** the region box from `GET /pool` and the events from `GET /events`, drawn with Leaflet on OpenStreetMap tiles (the browser loads the tiles from `tile.openstreetmap.org`). Markers are coloured by status and sized by magnitude. Leaflet is lazy-loaded so it doesn't weigh on the first render.
 
 ## Mock mode
 
@@ -91,7 +90,7 @@ All errors must use the shape in `docs/api.md` section 2, and `failureReason` mu
 
 ### `src/program/client.ts` (Solana program)
 
-Generate a Kit client with Codama from the program's committed IDL, then replace each mock body. Keep the exported signatures and types; on-chain values stay `Address` and `bigint`. Use the same devnet RPC as `src/providers.tsx`. Account seeds are in `docs/api.md` section 5.3.
+Generate a Kit client with Codama from the program's committed IDL, then replace each mock body. Keep the exported signatures and types; on-chain values stay `Address` and `bigint`. Use the same devnet RPC as `src/providers.tsx` (`VITE_RPC_URL`). Account seeds are in `docs/api.md` section 5.3.
 
 | Export                                         | The real implementation must                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
