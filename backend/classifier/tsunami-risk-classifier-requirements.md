@@ -133,7 +133,7 @@ result:
 {
   "riskScore": 91,
   "probability": 0.91,
-  "modelVersion": "v1"
+  "modelVersion": "model-v1"
 }
 ```
 
@@ -143,8 +143,7 @@ result:
 
 -   riskScore = round(probability \* 100).
 
--   modelVersion may remain "v1" for the hackathon MVP unless the
-    template specifies otherwise.
+-   modelVersion must be "model-v1" in inference and health responses.
 
 ## 9. Model Persistence
 

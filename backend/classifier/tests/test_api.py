@@ -13,7 +13,6 @@ VALID_REQUEST = {
     "depthKm": 41.0,
     "latitude": 37.7,
     "longitude": 141.6,
-    "time": "2026-10-03T18:42:10Z",
 }
 
 
@@ -32,7 +31,9 @@ def client(tmp_path_factory):
 
 
 def test_health(client):
-    assert client.get("/health").json() == {"status": "ok", "modelVersion": "v1"}
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "modelVersion": "model-v1"}
 
 
 def test_valid_score(client):
@@ -43,7 +44,25 @@ def test_valid_score(client):
     assert 0 <= body["probability"] <= 1
     assert 0 <= body["riskScore"] <= 100
     assert body["riskScore"] == round(body["probability"] * 100)
-    assert body["modelVersion"] == "v1"
+    assert body["modelVersion"] == "model-v1"
+    assert set(body) == {"eventId", "riskScore", "probability", "modelVersion"}
+    assert isinstance(body["riskScore"], int)
+
+
+@pytest.mark.parametrize("field", ["time", "unexpected"])
+def test_extra_fields_are_rejected(client, field):
+    request = {**VALID_REQUEST, field: "2026-10-03T18:42:10Z"}
+    response = client.post("/score", json=request)
+    assert response.status_code == 422
+    assert any(error["type"] == "extra_forbidden" for error in response.json()["detail"])
+
+
+def test_event_id_is_echoed_exactly_and_is_only_metadata(client):
+    expected = client.post("/score", json=VALID_REQUEST).json()
+    event_id = "  oracle-event/日本  "
+    response = client.post("/score", json={**VALID_REQUEST, "eventId": event_id})
+    assert response.status_code == 200
+    assert response.json() == {**expected, "eventId": event_id}
 
 
 @pytest.mark.parametrize("field", VALID_REQUEST)
@@ -66,8 +85,8 @@ def test_null_fields_are_rejected(client, field):
         ("latitude", 91),
         ("longitude", -181),
         ("longitude", 181),
-        ("time", "not-a-timestamp"),
-        ("time", 1791052930),
+        ("eventId", ""),
+        ("eventId", 1791052930),
         ("magnitude", "7.3"),
     ],
 )

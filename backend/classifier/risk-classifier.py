@@ -33,10 +33,16 @@ from sklearn.preprocessing import StandardScaler
 
 FEATURE_COLUMNS = ["magnitude", "depth", "latitude", "longitude"]
 TARGET_COLUMN = "tsunami"
-MODEL_VERSION = "v1"
+MODEL_VERSION = "model-v1"
 RANDOM_STATE = 42
 DEFAULT_DATASET_PATH = Path("Data/merged_usgs_noaa_tsunami_training.csv")
 DEFAULT_MODEL_PATH = Path("artifacts/tsunami-risk-classifier-v1.joblib")
+DEFAULT_DEMO_HOLDOUT_IDS = (
+    "usc000f03a",
+    "us6000h519",
+    "official20110311054624120_30",
+)
+CANDIDATE_THRESHOLDS = (30, 40, 50, 60, 70, 80, 90)
 
 
 def load_data(path):
@@ -51,8 +57,22 @@ def load_data(path):
         raise ValueError(f"Unable to read training dataset {dataset_path}: {exc}") from exc
 
 
-def preprocess_data(df):
-    """Validate the dataset and return a reproducible stratified split."""
+def extract_demo_holdouts(df, demo_holdout_ids=DEFAULT_DEMO_HOLDOUT_IDS):
+    """Separate demo rows by stable ID, without modifying the source dataset."""
+    if not demo_holdout_ids:
+        return df.copy(), df.iloc[:0].copy()
+    if "event_id" not in df.columns:
+        raise ValueError("Dataset is missing required column: event_id")
+    missing_ids = sorted(set(demo_holdout_ids) - set(df["event_id"]))
+    if missing_ids:
+        raise ValueError("Demo holdout event ID(s) not found: " + ", ".join(missing_ids))
+    demo_mask = df["event_id"].isin(demo_holdout_ids)
+    return df.loc[~demo_mask].copy(), df.loc[demo_mask].copy()
+
+
+def preprocess_data(df, demo_holdout_ids=DEFAULT_DEMO_HOLDOUT_IDS):
+    """Exclude demos, validate data, and return the fixed stratified split."""
+    df, _ = extract_demo_holdouts(df, demo_holdout_ids)
     required_columns = FEATURE_COLUMNS + [TARGET_COLUMN]
     missing_columns = [column for column in required_columns if column not in df.columns]
     if missing_columns:
@@ -147,6 +167,31 @@ def evaluate_model(model, X_test, y_test):
     return metrics
 
 
+def evaluate_thresholds(model, X_test, y_test, thresholds=CANDIDATE_THRESHOLDS):
+    """Analyze integer risk-score cutoffs on the ordinary test set only."""
+    positive_index = list(model.classes_).index(1)
+    probabilities = model.predict_proba(X_test)[:, positive_index]
+    risk_scores = pd.Series(
+        [round(float(probability) * 100) for probability in probabilities],
+        index=X_test.index,
+    )
+    results = []
+    for threshold in thresholds:
+        predictions = (risk_scores >= threshold).astype(int)
+        tn, fp, fn, tp = confusion_matrix(y_test, predictions, labels=[0, 1]).ravel()
+        results.append({
+            "threshold": threshold,
+            "truePositives": int(tp),
+            "falsePositives": int(fp),
+            "trueNegatives": int(tn),
+            "falseNegatives": int(fn),
+            "precision": float(precision_score(y_test, predictions, zero_division=0)),
+            "recall": float(recall_score(y_test, predictions, zero_division=0)),
+            "f1": float(f1_score(y_test, predictions, zero_division=0)),
+        })
+    return results
+
+
 def save_model(model, path):
     """Save the trained model."""
     model_path = Path(path)
@@ -184,7 +229,7 @@ def predict_risk(
         {
             "probability": float,
             "riskScore": int,
-            "modelVersion": "v1"
+            "modelVersion": "model-v1"
         }
     """
     supplied_values = {
@@ -227,12 +272,35 @@ def predict_risk(
 
 
 def train_and_save(dataset_path=DEFAULT_DATASET_PATH, model_path=DEFAULT_MODEL_PATH):
-    """Train, evaluate, and persist the fixed MVP baseline."""
+    """Train and persist the baseline, evaluating ordinary tests and demos apart."""
     dataset = load_data(dataset_path)
-    X_train, X_test, y_train, y_test = preprocess_data(dataset)
+    ordinary, demo_rows = extract_demo_holdouts(dataset)
+    X_train, X_test, y_train, y_test = preprocess_data(ordinary, demo_holdout_ids=())
     model = train_model(X_train, y_train)
     metrics = evaluate_model(model, X_test, y_test)
     save_model(model, model_path)
+    metrics["modelVersion"] = MODEL_VERSION
+    metrics["rowCounts"] = {
+        "dataset": len(dataset),
+        "ordinaryModeling": len(ordinary),
+        "demoHoldouts": len(demo_rows),
+        "train": len(X_train),
+        "test": len(X_test),
+    }
+    metrics["thresholdAnalysis"] = evaluate_thresholds(model, X_test, y_test)
+    demos_by_id = demo_rows.set_index("event_id")
+    metrics["demoScores"] = []
+    for event_id in DEFAULT_DEMO_HOLDOUT_IDS:
+        row = demos_by_id.loc[event_id]
+        result = predict_risk(
+            model, row["magnitude"], row["depth"], row["latitude"], row["longitude"]
+        )
+        metrics["demoScores"].append({
+            "event_id": event_id,
+            **{feature: float(row[feature]) for feature in FEATURE_COLUMNS},
+            "tsunami": int(row[TARGET_COLUMN]),
+            **result,
+        })
     return metrics
 
 

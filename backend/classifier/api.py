@@ -1,7 +1,6 @@
 """FastAPI integration for the persisted ReliefPool tsunami-risk model."""
 
 from contextlib import asynccontextmanager
-from datetime import datetime
 import importlib.util
 import math
 import os
@@ -37,14 +36,6 @@ class ScoreRequest(BaseModel):
     depthKm: float = Field(strict=True)
     latitude: float = Field(strict=True, ge=-90, le=90)
     longitude: float = Field(strict=True, ge=-180, le=180)
-    time: datetime
-
-    @field_validator("time", mode="before")
-    @classmethod
-    def timestamp_must_be_a_string(cls, value):
-        if not isinstance(value, str):
-            raise ValueError("must be an ISO 8601 string")
-        return value
 
     @field_validator("magnitude", "depthKm", "latitude", "longitude")
     @classmethod
