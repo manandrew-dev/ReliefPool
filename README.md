@@ -94,5 +94,8 @@ payout threshold.
 
 ## Visuals
 
+https://github.com/user-attachments/assets/df36802f-5350-4e82-aef7-f4c593e944ef
+
+
 
 
