@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { describeFailureReason } from "./errors";
+import { OracleApiError } from "../api/oracle";
+import { describeFailureReason, describeReplayError } from "./errors";
 
 describe("describeFailureReason", () => {
   // Every code in the docs/api.md section 3.1 table.
@@ -47,5 +48,34 @@ describe("describeFailureReason", () => {
     "toString",
   ])("shows unknown code %j as it is", (code) => {
     expect(describeFailureReason(code)).toBe(`Unrecognized failure (${code}).`);
+  });
+});
+
+describe("describeReplayError", () => {
+  it("explains a 400 INVALID_REQUEST with the ID rules", () => {
+    const text = describeReplayError(
+      new OracleApiError(400, "INVALID_REQUEST", "Event ID exceeds 32 bytes.")
+    );
+    expect(text).toBe(
+      "The backend rejected this replay as invalid (Event ID exceeds 32 bytes.). Event IDs can be at most 32 bytes, and run IDs can use only letters, digits, - and _."
+    );
+  });
+
+  it("explains a missing scenario", () => {
+    expect(
+      describeReplayError(
+        new OracleApiError(404, "SCENARIO_NOT_FOUND", "No replay scenario.")
+      )
+    ).toBe(
+      "The backend no longer has this scenario. Reload the page to get the current list."
+    );
+  });
+
+  it("falls back to the general text for other errors", () => {
+    expect(
+      describeReplayError(
+        new OracleApiError(0, "NETWORK_ERROR", "fetch failed")
+      )
+    ).toBe("Can't reach the backend.");
   });
 });

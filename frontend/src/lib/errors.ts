@@ -38,6 +38,20 @@ export function describeFailureReason(code: string): string {
   return `Unrecognized failure (${code}).`;
 }
 
+// Errors from POST /replay, other than the 409 the demo panel shows as
+// "double payout blocked" (api.md 3.7).
+export function describeReplayError(error: unknown): string {
+  if (error instanceof OracleApiError) {
+    if (error.code === "INVALID_REQUEST") {
+      return `The backend rejected this replay as invalid (${error.message}). Event IDs can be at most 32 bytes, and run IDs can use only letters, digits, - and _.`;
+    }
+    if (error.code === "SCENARIO_NOT_FOUND") {
+      return "The backend no longer has this scenario. Reload the page to get the current list.";
+    }
+  }
+  return describeError(error);
+}
+
 export function describeError(error: unknown): string {
   if (error instanceof OracleApiError) {
     return error.code === "NETWORK_ERROR"

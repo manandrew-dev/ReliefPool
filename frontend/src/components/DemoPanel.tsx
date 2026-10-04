@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import * as oracle from "../api/oracle";
 import type { QuakeEvent, ReplayScenario } from "../api/types";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { describeError, describeFailureReason } from "../lib/errors";
+import { describeFailureReason, describeReplayError } from "../lib/errors";
 import { isNotScored } from "../lib/events";
 import { formatLamportsAsSol } from "../lib/format";
 import {
@@ -80,7 +80,7 @@ export function DemoPanel({
       ) {
         setOutcome({ kind: "duplicate", id: eventId });
       } else {
-        setOutcome({ kind: "error", message: describeError(error) });
+        setOutcome({ kind: "error", message: describeReplayError(error) });
       }
     } finally {
       inFlight.current = false;
