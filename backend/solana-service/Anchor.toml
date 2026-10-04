@@ -1,5 +1,11 @@
+[toolchain]
+
 [features]
-default = []
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+reliefpool = "2qMKfjQfX6uvW1cUq7AeLGAMssKQuiJNtTDR6bGuxrZ3"
 
 [programs.localnet]
 reliefpool = "11111111111111111111111111111111"
@@ -8,7 +14,7 @@ reliefpool = "11111111111111111111111111111111"
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

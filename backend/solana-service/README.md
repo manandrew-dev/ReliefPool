@@ -339,6 +339,65 @@ Before marking the program ready:
 
 ---
 
+## Devnet deployment workflow
+
+For actual end-to-end verification, run the program on Solana devnet instead of trying to keep everything local. This avoids the local wallet and toolchain mismatch issues that usually block Anchor testing in a small workstation setup.
+
+### 1) Create or confirm a devnet wallet
+
+```bash
+solana config set --url devnet
+solana-keygen new --outfile ~/.config/solana/id.json --no-bip39-passphrase --force
+solana airdrop 2
+```
+
+### 2) Generate a fresh program keypair and sync it
+
+```bash
+cd backend/solana-service
+mkdir -p scripts
+solana-keygen new --outfile target/deploy/reliefpool-keypair.json --no-bip39-passphrase --force
+anchor keys sync
+anchor build
+```
+
+### 3) Deploy the program
+
+```bash
+anchor deploy --provider.cluster devnet
+```
+
+This writes a real program ID that can be copied into the Oracle service env values:
+
+```bash
+solana address -k target/deploy/reliefpool-keypair.json
+```
+
+### 4) Wire the oracle service to the deployed program
+
+Set these values in the Oracle environment:
+
+```bash
+RPC_URL=https://api.devnet.solana.com
+PROGRAM_ID=<deployed-program-id>
+POOL_ADDRESS=<pool-pda-or-address>
+VAULT_ADDRESS=<vault-pda-or-address>
+ORACLE_KEYPAIR_PATH=./oracle-keypair.json
+PORT=3001
+RESPONDER_WALLETS=<comma-separated responder wallet list>
+```
+
+### 5) Run the oracle service
+
+```bash
+cd backend/oracle
+npm install
+npm run build
+npm start
+```
+
+Then call the trigger endpoint with a real `eventId` and `riskScore` to validate live payout behavior on devnet.
+
 ## Recommended next step
 
 Start by scaffolding the Anchor program and implementing the `initialize_pool` + `register_responder` + `contribute` instructions first. After those pass tests, implement `trigger_payout` and only then wire the oracle service to it. This order keeps the funding and authorization model correct before adding the more sensitive payout logic.

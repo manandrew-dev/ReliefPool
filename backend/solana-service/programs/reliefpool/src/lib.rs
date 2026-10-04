@@ -6,7 +6,7 @@ pub mod state;
 
 pub use instructions::*;
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("2qMKfjQfX6uvW1cUq7AeLGAMssKQuiJNtTDR6bGuxrZ3");
 
 #[program]
 pub mod reliefpool {
@@ -34,7 +34,11 @@ pub mod reliefpool {
         instructions::contribute::handler(ctx, amount)
     }
 
-    pub fn trigger_payout(ctx: Context<TriggerPayout>, event_id: String, risk_score: u8) -> Result<()> {
+    pub fn trigger_payout<'info>(
+        ctx: Context<'_, '_, '_, 'info, TriggerPayout<'info>>,
+        event_id: String,
+        risk_score: u8,
+    ) -> Result<()> {
         instructions::trigger_payout::handler(ctx, event_id, risk_score)
     }
 }
