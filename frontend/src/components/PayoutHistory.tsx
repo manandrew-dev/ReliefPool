@@ -16,7 +16,10 @@ function confirmedAt(iso: string | null): string {
 // Confirmed payouts from GET /events?status=paid (docs/api.md section 6),
 // each with a link to its transaction. The backend holds the signatures.
 export function PayoutHistory({ payouts }: { payouts: EventData["payouts"] }) {
-  const events = (payouts.data?.events ?? []).filter((e) => e.payout);
+  // Only confirmed payouts have a real amount (pending ones carry 0).
+  const events = (payouts.data?.events ?? []).filter(
+    (e) => e.status === "paid" && e.payout
+  );
   const total = events.reduce(
     (sum, e) => sum + BigInt(e.payout!.amountLamports),
     0n

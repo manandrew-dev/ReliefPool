@@ -42,10 +42,12 @@ function EventRow({ event }: { event: QuakeEvent }) {
 
       <RiskScoreBar score={event.riskScore} threshold={event.threshold} />
 
-      {event.payout && (
+      {/* Amounts only once paid: while pending amountLamports is 0
+          (api.md 3.1), and a failed payout sent nothing. */}
+      {event.status === "paid" && event.payout && (
         <p className="text-xs text-muted">
-          {event.status === "paid" ? "Paid" : "Paying"}{" "}
-          {formatLamportsAsSol(event.payout.amountLamports)} SOL to responders
+          Paid {formatLamportsAsSol(event.payout.amountLamports)} SOL to
+          responders
         </p>
       )}
       {event.status === "failed" && event.failureReason && (

@@ -106,7 +106,8 @@ function confirmPendingMockPayouts() {
       event.status = "failed";
       event.failureReason =
         "InsufficientFunds: the vault cannot pay and stay rent-exempt.";
-      event.payout = null;
+      // The transaction was submitted, so payout stays set (api.md 3.1
+      // allows it on "failed"), with amountLamports still 0.
       continue;
     }
     event.status = "paid";
@@ -231,7 +232,9 @@ function mockReplay({ scenarioId, runId }: ReplayRequest): Promise<QuakeEvent> {
         status: "pending",
         payout: {
           signature,
-          amountLamports: Number(quote.amount),
+          // 0 while pending (api.md 3.1): the amount is known only after
+          // confirmation, when it is read from the payout record.
+          amountLamports: 0,
           explorerUrl: explorerTxUrl(signature),
           confirmedAt: null,
         },

@@ -64,13 +64,15 @@ describe("shared mock chain state", () => {
       runId: "a",
     });
     expect(event.status).toBe("pending");
-    expect(event.payout?.amountLamports).toBe(2_000_000_000);
+    // api.md 3.1: the amount is 0 until the payout confirms.
+    expect(event.payout?.amountLamports).toBe(0);
     // Pending: nothing has moved yet.
     expect(await snapshot()).toEqual(before);
 
     const { events } = await afterConfirmation();
     const confirmed = events.find((e) => e.id === "replay-major-01-a");
     expect(confirmed?.status).toBe("paid");
+    expect(confirmed?.payout?.amountLamports).toBe(2_000_000_000);
 
     const after = await snapshot();
     expect(after.vault).toBe(before.vault - 2n * SOL);
@@ -148,8 +150,11 @@ describe("shared mock chain state", () => {
       scenarioId: "replay-major-01",
       runId: "3",
     });
-    expect(full.payout?.amountLamports).toBe(2_000_000_000);
-    await afterConfirmation();
+    expect(full.payout?.amountLamports).toBe(0);
+    const afterFull = await afterConfirmation();
+    expect(
+      afterFull.events.find((e) => e.id === full.id)?.payout?.amountLamports
+    ).toBe(2_000_000_000);
 
     // 0.5 SOL left: the next payout is 0.5 SOL, not the 2 SOL cap.
     const partial = await oracle.postReplay({
@@ -157,8 +162,12 @@ describe("shared mock chain state", () => {
       runId: "4",
     });
     expect(partial.status).toBe("pending");
-    expect(partial.payout?.amountLamports).toBe(500_000_000);
-    await afterConfirmation();
+    expect(partial.payout?.amountLamports).toBe(0);
+    const afterPartial = await afterConfirmation();
+    expect(
+      afterPartial.events.find((e) => e.id === partial.id)?.payout
+        ?.amountLamports
+    ).toBe(500_000_000);
     expect((await snapshot()).vault).toBe(RENT);
   });
 
@@ -188,6 +197,13 @@ describe("shared mock chain state", () => {
       byId.get("replay-major-01-y")?.status,
     ].sort();
     expect(statuses).toEqual(["failed", "paid"]);
+    const failed = [
+      byId.get("replay-major-01-x"),
+      byId.get("replay-major-01-y"),
+    ].filter((e) => e?.status === "failed")[0];
+    // The transaction was submitted, so payout stays set, with nothing paid.
+    expect(failed?.payout?.amountLamports).toBe(0);
+    expect(failed?.payout?.confirmedAt).toBeNull();
     expect((await snapshot()).vault).toBe(RENT);
   });
 

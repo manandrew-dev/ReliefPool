@@ -26,7 +26,7 @@ function describeEvent(event: QuakeEvent): string {
     case "scored":
       return `Scored ${score}, below the threshold of ${event.threshold}. No payout.`;
     case "pending":
-      return `Scored ${score}. Payout of ${formatLamportsAsSol(event.payout?.amountLamports ?? 0)} SOL submitted, waiting for confirmation.`;
+      return `Scored ${score}. Payout submitted, confirming…`;
     case "paid":
       return `Scored ${score}. Paid ${formatLamportsAsSol(event.payout?.amountLamports ?? 0)} SOL to responders.`;
     case "failed":

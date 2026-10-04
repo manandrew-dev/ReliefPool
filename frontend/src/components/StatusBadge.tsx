@@ -6,7 +6,7 @@ const BADGES: Record<EventStatus, { label: string; className: string }> = {
     className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   },
   pending: {
-    label: "Payout pending",
+    label: "Confirming…",
     className:
       "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200",
   },
