@@ -3,7 +3,12 @@
 
 import { config } from "../config";
 import { explorerTxUrl } from "../lib/format";
-import { MAX_EVENT_ID_BYTES, eventIdBytes, replayEventId } from "../lib/replay";
+import {
+  MAX_EVENT_ID_BYTES,
+  RUN_ID_PATTERN,
+  eventIdBytes,
+  replayEventId,
+} from "../lib/replay";
 import { applyMockPayout, mockPool, quoteMockPayout } from "../mocks/chain";
 import {
   eventsFixture,
@@ -189,6 +194,13 @@ function mockReplay({ scenarioId, runId }: ReplayRequest): Promise<QuakeEvent> {
       404,
       "SCENARIO_NOT_FOUND",
       `No replay scenario with id '${scenarioId}'.`
+    );
+  }
+  if (runId !== undefined && !RUN_ID_PATTERN.test(runId)) {
+    return mockReject(
+      400,
+      "INVALID_REQUEST",
+      "runId may contain only letters, digits, - and _."
     );
   }
   const id = replayEventId(scenarioId, runId);

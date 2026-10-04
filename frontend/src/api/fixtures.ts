@@ -16,6 +16,8 @@ const THRESHOLD = 70;
 
 const PAID_SIGNATURE =
   "5ae7Q5DpgZ1xWkrT3KRGNAckP4m1GgBJNE8JYLusq5bsrLugBREb3H5PvJPLeRLK";
+const FAILED_SIGNATURE =
+  "4PhF7F95FkiNVD7iicHAV9Cb3LfTkU1bMK7WSwnkJwynmVqHZLvGdhmdXNW1wpePsZDc63WALY7r5P2g7Eb8f5GC";
 
 export const healthFixture: HealthResponse = {
   status: "ok",
@@ -60,6 +62,47 @@ export const poolFixture: PoolResponse = {
 
 // Newest first, as GET /events returns them.
 export const eventsFixture: QuakeEvent[] = [
+  {
+    // Payout rejected at preflight simulation (api.md 3.1): failed with the
+    // program error name, riskScore kept, payout null (nothing landed).
+    id: "us7000abd2",
+    source: "live",
+    time: "2026-10-03T19:20:05Z",
+    processedAt: "2026-10-03T19:20:41Z",
+    magnitude: 6.6,
+    depthKm: 24.0,
+    latitude: 39.81,
+    longitude: 142.9,
+    place: "off the coast of Iwate, Japan",
+    riskScore: 84,
+    threshold: THRESHOLD,
+    status: "failed",
+    failureReason: "Unauthorized",
+    payout: null,
+  },
+  {
+    // Payout sent, then failed on-chain (api.md 3.1): pending -> failed,
+    // riskScore kept, payout kept with amountLamports 0 and no confirmation.
+    id: "us7000abd1",
+    source: "live",
+    time: "2026-10-03T19:12:30Z",
+    processedAt: "2026-10-03T19:13:02Z",
+    magnitude: 7.0,
+    depthKm: 33.0,
+    latitude: 38.42,
+    longitude: 142.21,
+    place: "off the coast of Miyagi, Japan",
+    riskScore: 91,
+    threshold: THRESHOLD,
+    status: "failed",
+    failureReason: "TRANSACTION_FAILED",
+    payout: {
+      signature: FAILED_SIGNATURE,
+      amountLamports: 0,
+      explorerUrl: explorerTxUrl(FAILED_SIGNATURE),
+      confirmedAt: null,
+    },
+  },
   {
     // Below M5.0: never sent to the classifier, so riskScore is 0.
     id: "us7000abcf",

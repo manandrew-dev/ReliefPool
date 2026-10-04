@@ -2,6 +2,10 @@
 // 32 bytes (docs/api.md section 2).
 export const MAX_EVENT_ID_BYTES = 32;
 
+// The characters POST /replay accepts in a runId (api.md 3.7); anything
+// else gets 400 INVALID_REQUEST.
+export const RUN_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+
 // A short run ID so each replay gets a fresh event ID: "r" plus the last
 // six base-36 digits of the time, so at most 7 characters.
 export function newRunId(now: number = Date.now()): string {

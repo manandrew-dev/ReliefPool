@@ -1,6 +1,7 @@
 import { config } from "../config";
 import type { EventData } from "../hooks/useEventData";
 import { formatLamportsAsSol, shortAddress } from "../lib/format";
+import { paidEvents } from "../lib/payouts";
 import { Card } from "./Card";
 
 function confirmedAt(iso: string | null): string {
@@ -16,12 +17,11 @@ function confirmedAt(iso: string | null): string {
 // Confirmed payouts from GET /events?status=paid (docs/api.md section 6),
 // each with a link to its transaction. The backend holds the signatures.
 export function PayoutHistory({ payouts }: { payouts: EventData["payouts"] }) {
-  // Only confirmed payouts have a real amount (pending ones carry 0).
-  const events = (payouts.data?.events ?? []).filter(
-    (e) => e.status === "paid" && e.payout
-  );
+  // Only confirmed payouts have a real amount and transaction: pending ones
+  // carry 0, and a failed one may keep payout without anything paid.
+  const events = paidEvents(payouts.data?.events ?? []);
   const total = events.reduce(
-    (sum, e) => sum + BigInt(e.payout!.amountLamports),
+    (sum, e) => sum + BigInt(e.payout.amountLamports),
     0n
   );
 
@@ -57,7 +57,7 @@ export function PayoutHistory({ payouts }: { payouts: EventData["payouts"] }) {
           </thead>
           <tbody>
             {events.map((e) => {
-              const payout = e.payout!;
+              const payout = e.payout;
               return (
                 <tr key={e.id} className="border-t border-border-low">
                   <td className="max-w-56 py-2 pr-3">
