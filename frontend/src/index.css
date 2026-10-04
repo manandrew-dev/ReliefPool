@@ -59,3 +59,11 @@
     color-scheme: light dark;
   }
 }
+
+/* Leaflet popups are white by default; match the cards so text and status
+   badges read correctly in dark mode too. */
+.leaflet-container .leaflet-popup-content-wrapper,
+.leaflet-container .leaflet-popup-tip {
+  background: var(--card);
+  color: var(--card-foreground);
+}

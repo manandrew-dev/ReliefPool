@@ -26,12 +26,15 @@
     "@solana/client": "^1.0.0-rc.2",
     "@solana/react-hooks": "^1.0.0-rc.3",
     "@tailwindcss/vite": "^4",
+    "leaflet": "^1.9.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-leaflet": "^5.0.0",
     "tailwindcss": "^4"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

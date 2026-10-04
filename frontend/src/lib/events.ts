@@ -1,4 +1,4 @@
-import type { QuakeEvent } from "../api/types";
+import type { EventStatus, QuakeEvent } from "../api/types";
 import { describeFailureReason } from "./errors";
 import { formatLamportsAsSol } from "./format";
 import { confirmedPayout } from "./payouts";
@@ -6,6 +6,14 @@ import { confirmedPayout } from "./payouts";
 // The oracle sends only quakes of M5.0 and above to the classifier. Smaller
 // in-region quakes get riskScore 0 without being scored (api.md 3.1).
 export const CLASSIFIER_MIN_MAGNITUDE = 5.0;
+
+// What each status means to a visitor; the API names are internal.
+export const STATUS_LABELS: Record<EventStatus, string> = {
+  scored: "No payout",
+  pending: "Confirming…",
+  paid: "Paid",
+  failed: "Failed",
+};
 
 export function isNotScored(
   event: Pick<QuakeEvent, "riskScore" | "magnitude">
