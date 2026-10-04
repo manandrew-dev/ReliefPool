@@ -1,0 +1,96 @@
+# ReliefPool Oracle Service
+
+中文版: [README.zh.md](README.zh.md)
+
+Reads earthquakes from USGS, scores them with the classifier, and calls `trigger_payout` on the Solana program when a score meets the pool threshold. It also serves the REST API the frontend uses ([docs/api.md](../../docs/api.md) §3). Plan: [docs/oracle-plan.md](../../docs/oracle-plan.md).
+
+## Run
+
+Requires Node 20+.
+
+```bash
+cd backend/oracle
+npm install
+npm run dev        # http://localhost:3001/api, reloads on change
+```
+
+With no `.env`, the service runs fully mocked: the classifier is a local formula and the chain is simulated. To change settings, copy `.env.example` to `.env`. The main switches:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MOCK_CLASSIFIER` | `true` | `false` calls Keith's service at `CLASSIFIER_URL`; `/health` then shows its `modelVersion` (`rules-v1` or `model-v1`) |
+| `MOCK_CHAIN` | `true` | `false` uses the real program; see [Real program](#real-program) |
+| `POLL_ENABLED` | `true` | Polls the USGS live feed every `POLL_INTERVAL_MS` |
+| `MIN_MAGNITUDE` | `5.0` | In-region quakes below this are stored with score 0 and never scored |
+
+The demo region and wallet labels for `GET /pool` are set in `pool.config.json`.
+
+## How an event is processed
+
+Live and replayed events take the same path ([src/pipeline.ts](src/pipeline.ts)):
+
+1. Skip events that were already seen, or that are outside the region.
+2. Read the threshold from the chain.
+3. Below `MIN_MAGNITUDE`: `riskScore: 0`, stop.
+4. Score with the classifier, sending exactly the five contract fields ([docs/api.md](../../docs/api.md) §4). If the classifier is unavailable, rejects the request, or breaks the contract, the event becomes `failed` (`CLASSIFIER_UNAVAILABLE`, `CLASSIFIER_REJECTED`, or `CLASSIFIER_INVALID_RESPONSE`) and is **never paid**.
+5. Score below the threshold: `scored`, stop.
+6. Send `trigger_payout`: status becomes `pending`, then `paid` once confirmed (or `failed` with the program's error name).
+
+An event is stored only once it has been scored, so `riskScore` is `null` only on `failed` events. `POST /replay` waits for steps 1–6 and returns the event as `scored`, `pending`, or `failed`; the `paid` status arrives later through `GET /events`. Events are saved to `data/events.json` after every change, so a restart keeps payout signatures.
+
+## Replay scenarios
+
+`scenarios.json` holds real USGS events, so replays use the same data shape as the live feed:
+
+| ID | Quake | Mock score (threshold 70) | Outcome |
+|---|---|---|---|
+| `jp-2025-m48` | M4.8 off Ōfunato, 2025 | 0 (below `MIN_MAGNITUDE`) | no payout |
+| `jp-2013-m69-deep` | M6.9 near Obihiro, 107 km deep, 2013 | 27 | no payout |
+| `jp-2022-m73` | M7.3 off Fukushima, 2022 | 77 | payout |
+| `tohoku-2011-m91` | M9.1 Tōhoku, 2011 | 100 | payout |
+
+```bash
+curl -X POST localhost:3001/api/replay -H 'Content-Type: application/json' \
+  -d '{"scenarioId":"jp-2022-m73","runId":"r1"}'
+```
+
+Without a `runId`, a second replay of the same scenario returns `409`. That's the double-payout guard working. To change the list, edit `scripts/build-scenarios.ts` and run `npm run scenarios:build`.
+
+## For the frontend
+
+`fixtures/events.sample.json` is a `GET /events` response covering every status: `scored`, `pending`, `paid`, and `failed`.
+
+`GET /pool` returns `null` for `programId`, `poolAddress`, and `vaultAddress` until the program is deployed.
+
+## Real program
+
+With `MOCK_CHAIN=false`, the oracle talks to the deployed program through its IDL ([src/solana.ts](src/solana.ts)). It needs:
+
+| Variable | Meaning |
+|---|---|
+| `IDL_PATH` | The program IDL, default `../../idl/reliefpool.json` (committed by the program owner) |
+| `POOL_ADDRESS` | The demo pool PDA. Required |
+| `PROGRAM_ID`, `VAULT_ADDRESS` | Optional. Taken from the IDL and derived from the pool when empty; if set, they must match |
+| `RPC_URL`, `ORACLE_KEYPAIR_PATH` | Devnet RPC and the oracle signing key |
+
+At startup the oracle checks that the IDL has what it relies on (docs/api.md §5): `trigger_payout(event_id: string, risk_score: u8)` with the accounts `pool`, `vault`, `payout_record`, `oracle`, `system_program`, and `Pool.threshold`, `Pool.responders`, `PayoutRecord.amount`. If anything is missing it exits and lists the mismatches.
+
+Responders are passed as writable remaining accounts in `Pool.responders` order. Payouts are sent with preflight, so a program error such as `InsufficientFunds` fails the event straight away with that name; an error that only shows up on-chain moves the event from `pending` to `failed`.
+
+`test/fixtures/reliefpool.idl.json` is a stand-in IDL shaped like api.md §5. The tests use it so they do not depend on the program build; at startup the oracle reads the real IDL from `idl/reliefpool.json`.
+
+## Oracle key
+
+```bash
+npm run keygen     # writes oracle-keypair.json (gitignored) and prints the public key
+npm run airdrop    # devnet SOL for fees; if rate-limited, use https://faucet.solana.com
+```
+
+Never commit `oracle-keypair.json` or `.env`. Share only the public key.
+
+## Tests
+
+```bash
+npm test           # pipeline, store, HTTP API, and the program client
+npm run typecheck
+```

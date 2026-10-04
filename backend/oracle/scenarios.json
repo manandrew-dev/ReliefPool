@@ -1,0 +1,58 @@
+[
+  {
+    "id": "jp-2025-m48",
+    "label": "Small offshore quake, too weak to score (M4.8, 2025)",
+    "expectedOutcome": "no_payout",
+    "input": {
+      "usgsId": "us6000q4y3",
+      "time": "2025-03-30T12:30:55Z",
+      "magnitude": 4.8,
+      "depthKm": 35,
+      "latitude": 38.5054,
+      "longitude": 142.6996,
+      "place": "106 km SE of Ōfunato, Japan"
+    }
+  },
+  {
+    "id": "jp-2013-m69-deep",
+    "label": "Deep inland quake near Obihiro (M6.9, 107 km, 2013)",
+    "expectedOutcome": "no_payout",
+    "input": {
+      "usgsId": "usc000f03a",
+      "time": "2013-02-02T14:17:35Z",
+      "magnitude": 6.9,
+      "depthKm": 107,
+      "latitude": 42.77,
+      "longitude": 143.092,
+      "place": "18 km SSW of Obihiro, Japan"
+    }
+  },
+  {
+    "id": "jp-2022-m73",
+    "label": "Fukushima offshore quake (M7.3, 2022)",
+    "expectedOutcome": "payout",
+    "input": {
+      "usgsId": "us6000h519",
+      "time": "2022-03-16T14:36:30Z",
+      "magnitude": 7.3,
+      "depthKm": 41,
+      "latitude": 37.7132,
+      "longitude": 141.5793,
+      "place": "57 km ENE of Namie, Japan"
+    }
+  },
+  {
+    "id": "tohoku-2011-m91",
+    "label": "Great Tohoku earthquake (M9.1, 2011)",
+    "expectedOutcome": "payout",
+    "input": {
+      "usgsId": "official20110311054624120_30",
+      "time": "2011-03-11T05:46:24Z",
+      "magnitude": 9.1,
+      "depthKm": 29,
+      "latitude": 38.297,
+      "longitude": 142.373,
+      "place": "2011 Great Tohoku Earthquake, Japan"
+    }
+  }
+]

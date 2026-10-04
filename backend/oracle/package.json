@@ -1,0 +1,35 @@
+{
+  "name": "reliefpool-oracle",
+  "version": "1.0.0",
+  "description": "ReliefPool oracle service: USGS feed -> classifier -> trigger_payout",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "keygen": "tsx scripts/keygen.ts",
+    "airdrop": "tsx scripts/airdrop.ts",
+    "scenarios:build": "tsx scripts/build-scenarios.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/web3.js": "^1.99.0",
+    "bs58": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  }
+}

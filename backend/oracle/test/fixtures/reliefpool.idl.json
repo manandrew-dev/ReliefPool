@@ -1,0 +1,213 @@
+{
+  "address": "2qMKfjQfX6uvW1cUq7AeLGAMssKQuiJNtTDR6bGuxrZ3",
+  "metadata": {
+    "name": "reliefpool",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Test fixture shaped like docs/api.md section 5; not the real program IDL."
+  },
+  "instructions": [
+    {
+      "name": "trigger_payout",
+      "discriminator": [
+        145,
+        81,
+        98,
+        96,
+        194,
+        251,
+        69,
+        38
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "payout_record",
+          "writable": true
+        },
+        {
+          "name": "oracle",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "event_id",
+          "type": "string"
+        },
+        {
+          "name": "risk_score",
+          "type": "u8"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "PayoutRecord",
+      "discriminator": [
+        7,
+        79,
+        243,
+        33,
+        243,
+        68,
+        106,
+        123
+      ]
+    },
+    {
+      "name": "Pool",
+      "discriminator": [
+        241,
+        154,
+        109,
+        4,
+        17,
+        177,
+        109,
+        188
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Signer is not allowed to do this."
+    },
+    {
+      "code": 6001,
+      "name": "TooManyResponders",
+      "msg": "Too many responders."
+    },
+    {
+      "code": 6002,
+      "name": "InvalidShares",
+      "msg": "Shares do not total 10,000."
+    },
+    {
+      "code": 6003,
+      "name": "BelowThreshold",
+      "msg": "Risk score is below the threshold."
+    },
+    {
+      "code": 6004,
+      "name": "InsufficientFunds",
+      "msg": "Vault cannot pay."
+    },
+    {
+      "code": 6005,
+      "name": "ZeroAmount",
+      "msg": "Amount must be greater than zero."
+    }
+  ],
+  "types": [
+    {
+      "name": "PayoutRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "event_id",
+            "type": "string"
+          },
+          {
+            "name": "risk_score",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Pool",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle",
+            "type": "pubkey"
+          },
+          {
+            "name": "region_id",
+            "type": "u16"
+          },
+          {
+            "name": "threshold",
+            "type": "u8"
+          },
+          {
+            "name": "payout_cap_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "responders",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "ResponderShare"
+                }
+              }
+            }
+          },
+          {
+            "name": "total_contributed",
+            "type": "u64"
+          },
+          {
+            "name": "total_paid_out",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ResponderShare",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "share_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    }
+  ]
+}

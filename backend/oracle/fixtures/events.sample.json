@@ -1,0 +1,110 @@
+{
+  "events": [
+    {
+      "id": "tohoku-2011-m91",
+      "source": "replay",
+      "time": "2011-03-11T05:46:24Z",
+      "processedAt": "2026-10-03T22:47:30Z",
+      "magnitude": 9.1,
+      "depthKm": 29,
+      "latitude": 38.297,
+      "longitude": 142.373,
+      "place": "2011 Great Tohoku Earthquake, Japan",
+      "riskScore": null,
+      "threshold": 70,
+      "status": "failed",
+      "failureReason": "CLASSIFIER_UNAVAILABLE",
+      "payout": null
+    },
+    {
+      "id": "jp-2022-m73-rehearsal-2",
+      "source": "replay",
+      "time": "2022-03-16T14:36:30Z",
+      "processedAt": "2026-10-03T22:47:20Z",
+      "magnitude": 7.3,
+      "depthKm": 41,
+      "latitude": 37.7132,
+      "longitude": 141.5793,
+      "place": "57 km ENE of Namie, Japan",
+      "riskScore": 77,
+      "threshold": 70,
+      "status": "pending",
+      "failureReason": null,
+      "payout": {
+        "signature": "bGCjZ2kx8hbh8NyKaLJNZ8dq6ZWe7UGqoaeEjjfNZ3VeMw3gFjRmzkGzHosQcwQQ4z8XCvqLvr2YCSkPF1ksnk1",
+        "amountLamports": 0,
+        "explorerUrl": "https://explorer.solana.com/tx/bGCjZ2kx8hbh8NyKaLJNZ8dq6ZWe7UGqoaeEjjfNZ3VeMw3gFjRmzkGzHosQcwQQ4z8XCvqLvr2YCSkPF1ksnk1?cluster=devnet",
+        "confirmedAt": null
+      }
+    },
+    {
+      "id": "jp-2022-m73",
+      "source": "replay",
+      "time": "2022-03-16T14:36:30Z",
+      "processedAt": "2026-10-03T22:46:19Z",
+      "magnitude": 7.3,
+      "depthKm": 41,
+      "latitude": 37.7132,
+      "longitude": 141.5793,
+      "place": "57 km ENE of Namie, Japan",
+      "riskScore": 77,
+      "threshold": 70,
+      "status": "paid",
+      "failureReason": null,
+      "payout": {
+        "signature": "5TM79PA52GwDHkREmBeU7i1C4MGPUJzpF6oyKA4m46FRKVWub3HKqfWfzN2cvtXr5sUih2jw4kkowe8NzHZgTDbw",
+        "amountLamports": 100000000,
+        "explorerUrl": "https://explorer.solana.com/tx/5TM79PA52GwDHkREmBeU7i1C4MGPUJzpF6oyKA4m46FRKVWub3HKqfWfzN2cvtXr5sUih2jw4kkowe8NzHZgTDbw?cluster=devnet",
+        "confirmedAt": "2026-10-03T22:46:20Z"
+      }
+    },
+    {
+      "id": "jp-2013-m69-deep",
+      "source": "replay",
+      "time": "2013-02-02T14:17:35Z",
+      "processedAt": "2026-10-03T22:46:19Z",
+      "magnitude": 6.9,
+      "depthKm": 107,
+      "latitude": 42.77,
+      "longitude": 143.092,
+      "place": "18 km SSW of Obihiro, Japan",
+      "riskScore": 27,
+      "threshold": 70,
+      "status": "scored",
+      "failureReason": null,
+      "payout": null
+    },
+    {
+      "id": "jp-2025-m48",
+      "source": "replay",
+      "time": "2025-03-30T12:30:55Z",
+      "processedAt": "2026-10-03T22:46:19Z",
+      "magnitude": 4.8,
+      "depthKm": 35,
+      "latitude": 38.5054,
+      "longitude": 142.6996,
+      "place": "106 km SE of Ōfunato, Japan",
+      "riskScore": 0,
+      "threshold": 70,
+      "status": "scored",
+      "failureReason": null,
+      "payout": null
+    },
+    {
+      "id": "us7000sample",
+      "source": "live",
+      "time": "2026-10-03T22:40:12Z",
+      "processedAt": "2026-10-03T22:40:41Z",
+      "magnitude": 5.4,
+      "depthKm": 38.2,
+      "latitude": 38.9,
+      "longitude": 142.3,
+      "place": "92 km E of Ōfunato, Japan",
+      "riskScore": 12,
+      "threshold": 70,
+      "status": "scored",
+      "failureReason": null,
+      "payout": null
+    }
+  ]
+}

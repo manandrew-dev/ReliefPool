@@ -1,0 +1,34 @@
+{
+  "region": {
+    "id": 1,
+    "name": "Japan Pacific Coast",
+    "bounds": {
+      "minLat": 30,
+      "maxLat": 46,
+      "minLon": 135,
+      "maxLon": 150
+    }
+  },
+  "labels": {
+    "6pZDZ5uoSqq1ZyDrwEi5nGCgGP4FPM5Rp7tWujFQw8xA": {
+      "name": "Coastal Relief NGO",
+      "role": "responder"
+    },
+    "H29QbLrLQ69aCPSCHndUTYm44CJCosFH6qmwg1hcQsCm": {
+      "name": "Harbor Rescue Network",
+      "role": "responder"
+    },
+    "5U5uLBZ8jVebjrruFqSufUC13SZwxZq89Pv5R5kk6TSQ": {
+      "name": "Regional Government",
+      "role": "contributor"
+    },
+    "HHnWn9ZBLdqxquz1H4HkCy2qqdN5m954Ji4nvXX1Hhv7": {
+      "name": "Pacific Aid Fund",
+      "role": "contributor"
+    },
+    "2cxwfxkqE6ddy6QBomGEmLS5V7zqiszHVrgkTtRZQxpj": {
+      "name": "Community Donors",
+      "role": "contributor"
+    }
+  }
+}
