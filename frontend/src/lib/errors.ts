@@ -15,6 +15,8 @@ const PROGRAM_ERROR_TEXT: Record<ProgramErrorCode, string> = {
   BelowThreshold: "The risk score is below the pool's threshold.",
   InsufficientFunds: "The pool's vault doesn't have enough SOL for a payout.",
   ZeroAmount: "Enter an amount greater than 0.",
+  InvalidThreshold: "The pool's threshold must be from 0 to 100.",
+  DuplicateResponder: "That wallet is already a responder in this pool.",
 };
 
 // Readable text for the oracle's failureReason codes (docs/api.md 3.1).
