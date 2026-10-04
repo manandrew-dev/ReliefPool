@@ -58,8 +58,15 @@ function EventRow({ event }: { event: QuakeEvent }) {
       )}
       {event.status === "failed" && event.failureReason && (
         <p className="text-xs text-red-600">
-          {describeFailureReason(event.failureReason)}{" "}
-          <span className="font-mono opacity-75">{event.failureReason}</span>
+          {describeFailureReason(event.failureReason)}
+          {/* Unknown codes already include the code in their text. */}
+          {!describeFailureReason(event.failureReason).includes(
+            event.failureReason
+          ) && (
+            <span className="ml-1 font-mono opacity-75">
+              {event.failureReason}
+            </span>
+          )}
         </p>
       )}
     </li>
