@@ -1,5 +1,5 @@
 import { combineAsync } from "../hooks/useAsyncData";
-import type { PoolData } from "../hooks/usePoolData";
+import { POOL_NOT_DEPLOYED_MESSAGE, type PoolData } from "../hooks/usePoolData";
 import { formatLamportsAsSol } from "../lib/format";
 import { Card } from "./Card";
 
@@ -18,28 +18,32 @@ function Sol({ lamports }: { lamports: bigint }) {
 // Four stat cards: vault balance, totals and the payout rule. Sources per
 // docs/api.md section 6.
 export function PoolSummary({ data }: { data: PoolData }) {
-  const { info, pool, vaultBalance } = data;
+  const { info, pool, vaultBalance, notDeployed } = data;
+  const notDeployedState = {
+    empty: notDeployed,
+    emptyMessage: POOL_NOT_DEPLOYED_MESSAGE,
+  };
   const vaultState = combineAsync(info, vaultBalance);
   const poolState = combineAsync(info, pool);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <Card title="Vault balance" {...vaultState}>
+      <Card title="Vault balance" {...vaultState} {...notDeployedState}>
         {vaultBalance.data !== undefined && (
           <Sol lamports={vaultBalance.data} />
         )}
         <p className="text-xs text-muted">Held by the program, not a wallet</p>
       </Card>
 
-      <Card title="Total contributed" {...poolState}>
+      <Card title="Total contributed" {...poolState} {...notDeployedState}>
         {pool.data && <Sol lamports={pool.data.totalContributed} />}
       </Card>
 
-      <Card title="Total paid out" {...poolState}>
+      <Card title="Total paid out" {...poolState} {...notDeployedState}>
         {pool.data && <Sol lamports={pool.data.totalPaidOut} />}
       </Card>
 
-      <Card title="Payout rule" {...poolState}>
+      <Card title="Payout rule" {...poolState} {...notDeployedState}>
         {pool.data && info.data && (
           <>
             <p className="text-2xl font-semibold">

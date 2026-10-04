@@ -36,14 +36,15 @@ export interface HealthResponse {
   status: string;
   classifier: string;
   solana: string;
-  lastFeedPollAt: string;
+  lastFeedPollAt: string | null; // null until the first successful USGS poll
 }
 
 // GET /pool (section 3.3)
 export interface PoolResponse {
-  programId: string;
-  poolAddress: string;
-  vaultAddress: string;
+  // null until the program is deployed and the pool initialized (api.md 3.3)
+  programId: string | null;
+  poolAddress: string | null;
+  vaultAddress: string | null;
   cluster: "devnet";
   region: {
     id: number;

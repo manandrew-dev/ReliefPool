@@ -1,5 +1,5 @@
 import { combineAsync } from "../hooks/useAsyncData";
-import type { PoolData } from "../hooks/usePoolData";
+import { POOL_NOT_DEPLOYED_MESSAGE, type PoolData } from "../hooks/usePoolData";
 import {
   formatBpsAsPercent,
   formatLamportsAsSol,
@@ -30,8 +30,12 @@ export function AgreedTermsCard({ data }: { data: PoolData }) {
     <Card
       title="Agreed terms"
       {...state}
-      empty={responders.length === 0}
-      emptyMessage="No responders registered yet. Payouts are blocked until responder shares total 100%."
+      empty={data.notDeployed || responders.length === 0}
+      emptyMessage={
+        data.notDeployed
+          ? POOL_NOT_DEPLOYED_MESSAGE
+          : "No responders registered yet. Payouts are blocked until responder shares total 100%."
+      }
     >
       {pool.data && info.data && (
         <>

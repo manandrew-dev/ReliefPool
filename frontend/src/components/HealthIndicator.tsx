@@ -19,7 +19,11 @@ export function HealthIndicator() {
 
   const detail =
     state.status === "online"
-      ? `Classifier: ${state.health.classifier}, Solana: ${state.health.solana}`
+      ? `Classifier: ${state.health.classifier}, Solana: ${state.health.solana}. ${
+          state.health.lastFeedPollAt
+            ? `Last feed poll: ${new Date(state.health.lastFeedPollAt).toLocaleTimeString()}.`
+            : "No feed poll yet."
+        }`
       : state.status === "offline"
         ? state.reason
         : state.status === "mock"

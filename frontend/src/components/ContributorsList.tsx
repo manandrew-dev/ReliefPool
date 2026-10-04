@@ -2,7 +2,7 @@ import { toAddress } from "@solana/client";
 import { useWalletConnection } from "@solana/react-hooks";
 import { useState } from "react";
 import { combineAsync } from "../hooks/useAsyncData";
-import type { PoolData } from "../hooks/usePoolData";
+import { POOL_NOT_DEPLOYED_MESSAGE, type PoolData } from "../hooks/usePoolData";
 import {
   apportionBps,
   formatBpsAsPercent,
@@ -36,9 +36,11 @@ export function ContributorsList({
 
   const disabledReason = networkProblem
     ? "Contributing is disabled on the wrong network."
-    : !poolAddress
-      ? "Pool details have not loaded yet."
-      : undefined;
+    : data.notDeployed
+      ? "Pool not deployed yet."
+      : !poolAddress
+        ? "Pool details have not loaded yet."
+        : undefined;
 
   const action = (
     <button
@@ -57,8 +59,12 @@ export function ContributorsList({
         title="Contributors"
         action={action}
         {...state}
-        empty={rows.length === 0}
-        emptyMessage="No contributions yet. Be the first."
+        empty={data.notDeployed || rows.length === 0}
+        emptyMessage={
+          data.notDeployed
+            ? POOL_NOT_DEPLOYED_MESSAGE
+            : "No contributions yet. Be the first."
+        }
       >
         <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto">
           {rows.map((c, i) => (
