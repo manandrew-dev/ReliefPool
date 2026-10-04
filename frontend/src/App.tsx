@@ -4,6 +4,7 @@ import { EventFeed } from "./components/EventFeed";
 import { HealthIndicator } from "./components/HealthIndicator";
 import { MockBadge } from "./components/MockBadge";
 import { NetworkBanner } from "./components/NetworkBanner";
+import { PayoutHistory } from "./components/PayoutHistory";
 import { PoolSummary } from "./components/PoolSummary";
 import { WalletButton } from "./components/WalletButton";
 import { useEventData } from "./hooks/useEventData";
@@ -35,6 +36,9 @@ export default function App() {
           <ContributorsList data={poolData} networkProblem={networkProblem} />
         </div>
         <EventFeed feed={eventData.feed} />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <PayoutHistory payouts={eventData.payouts} />
+        </div>
       </main>
     </>
   );
