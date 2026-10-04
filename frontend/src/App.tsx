@@ -1,5 +1,6 @@
 import { AgreedTermsCard } from "./components/AgreedTermsCard";
 import { ContributorsList } from "./components/ContributorsList";
+import { EventFeed } from "./components/EventFeed";
 import { HealthIndicator } from "./components/HealthIndicator";
 import { MockBadge } from "./components/MockBadge";
 import { NetworkBanner } from "./components/NetworkBanner";
@@ -12,7 +13,7 @@ import { usePoolData } from "./hooks/usePoolData";
 export default function App() {
   const poolData = usePoolData();
   // A new payout changes the vault and totals, so refresh chain data then.
-  useEventData(poolData.refreshChain);
+  const eventData = useEventData(poolData.refreshChain);
   const networkProblem = useNetworkProblem(poolData.info.data);
 
   return (
@@ -33,6 +34,7 @@ export default function App() {
           <AgreedTermsCard data={poolData} />
           <ContributorsList data={poolData} networkProblem={networkProblem} />
         </div>
+        <EventFeed feed={eventData.feed} />
       </main>
     </>
   );
