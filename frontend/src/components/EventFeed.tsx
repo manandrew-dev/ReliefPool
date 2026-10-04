@@ -2,6 +2,7 @@ import type { QuakeEvent } from "../api/types";
 import type { EventData } from "../hooks/useEventData";
 import { describeFailureReason } from "../lib/errors";
 import { isNotScored } from "../lib/events";
+import { confirmedPayout, failedAfterSending } from "../lib/payouts";
 import { formatLamportsAsSol, formatRelativeTime } from "../lib/format";
 import { Card } from "./Card";
 import { RiskScoreBar } from "./RiskScoreBar";
@@ -17,6 +18,7 @@ function quakeDate(iso: string): string {
 }
 
 function EventRow({ event }: { event: QuakeEvent }) {
+  const paid = confirmedPayout(event);
   return (
     <li className="flex flex-col gap-2 border-t border-border-low pt-3 first:border-t-0 first:pt-0">
       <div className="flex items-start justify-between gap-2">
@@ -50,10 +52,9 @@ function EventRow({ event }: { event: QuakeEvent }) {
 
       {/* Amounts only once paid: while pending amountLamports is 0
           (api.md 3.1), and a failed payout sent nothing. */}
-      {event.status === "paid" && event.payout && (
+      {paid && (
         <p className="text-xs text-muted">
-          Paid {formatLamportsAsSol(event.payout.amountLamports)} SOL to
-          responders
+          Paid {formatLamportsAsSol(paid.amountLamports)} SOL to responders
         </p>
       )}
       {event.status === "failed" && event.failureReason && (
@@ -67,6 +68,12 @@ function EventRow({ event }: { event: QuakeEvent }) {
               {event.failureReason}
             </span>
           )}
+        </p>
+      )}
+      {failedAfterSending(event) && (
+        <p className="text-xs text-muted">
+          The payout transaction was sent but failed on-chain, so nothing was
+          paid.
         </p>
       )}
     </li>
