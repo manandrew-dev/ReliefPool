@@ -77,7 +77,7 @@ curl -X POST localhost:3001/api/replay -H 'Content-Type: application/json' \
 
 Responder 按 `Pool.responders` 的顺序，作为可写的 remaining accounts 传入。赔付交易会先做预检（preflight），所以 `InsufficientFunds` 这类程序错误会让事件立即变成 `failed`，失败原因就是该错误名；只有上链后才出现的错误，会让事件从 `pending` 变成 `failed`。
 
-`test/fixtures/reliefpool.idl.json` 是按 api.md §5 写的替身 IDL，在真实 IDL 提交之前供测试使用。
+`test/fixtures/reliefpool.idl.json` 是按 api.md §5 写的替身 IDL。测试使用它，这样不依赖程序构建；oracle 启动时读取的是 `idl/reliefpool.json` 里的真实 IDL。
 
 ## Oracle 密钥
 

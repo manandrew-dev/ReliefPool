@@ -77,7 +77,7 @@ At startup the oracle checks that the IDL has what it relies on (docs/api.md §5
 
 Responders are passed as writable remaining accounts in `Pool.responders` order. Payouts are sent with preflight, so a program error such as `InsufficientFunds` fails the event straight away with that name; an error that only shows up on-chain moves the event from `pending` to `failed`.
 
-`test/fixtures/reliefpool.idl.json` is a stand-in IDL shaped like api.md §5, used by the tests until the real one is committed.
+`test/fixtures/reliefpool.idl.json` is a stand-in IDL shaped like api.md §5. The tests use it so they do not depend on the program build; at startup the oracle reads the real IDL from `idl/reliefpool.json`.
 
 ## Oracle key
 
