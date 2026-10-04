@@ -30,11 +30,13 @@ export const poolFixture: PoolResponse = {
   poolAddress: mockWallets.pool,
   vaultAddress: mockWallets.vault,
   cluster: "devnet",
+  // The demo region (api.md 3.3).
   region: {
     id: 1,
-    name: "Tohoku Coast, Japan",
-    bounds: { minLat: 35, maxLat: 42, minLon: 139, maxLon: 146 },
+    name: "Japan Pacific Coast",
+    bounds: { minLat: 30, maxLat: 46, minLon: 135, maxLon: 150 },
   },
+  // Display names from the demo pool setup (api.md 5.6).
   labels: {
     [mockWallets.responderA]: { name: "Coastal Relief NGO", role: "responder" },
     [mockWallets.responderB]: {
@@ -47,6 +49,10 @@ export const poolFixture: PoolResponse = {
     },
     [mockWallets.contributorB]: {
       name: "Pacific Aid Fund",
+      role: "contributor",
+    },
+    [mockWallets.contributorC]: {
+      name: "Community Donors",
       role: "contributor",
     },
   },
@@ -105,7 +111,7 @@ export const eventsFixture: QuakeEvent[] = [
     payout: null,
   },
   {
-    id: "replay-major-01",
+    id: "tohoku-2011-m91",
     source: "replay",
     time: "2011-03-11T05:46:24Z",
     processedAt: "2026-10-03T18:42:10Z",
@@ -113,36 +119,55 @@ export const eventsFixture: QuakeEvent[] = [
     depthKm: 29.0,
     latitude: 38.297,
     longitude: 142.373,
-    place: "near the east coast of Honshu, Japan",
-    riskScore: 97,
+    place: "2011 Great Tohoku Earthquake, Japan",
+    riskScore: 100,
     threshold: THRESHOLD,
     status: "paid",
     failureReason: null,
     payout: {
       signature: PAID_SIGNATURE,
-      amountLamports: 2000000000,
+      // One payout at the demo pool's 0.1 SOL cap (api.md 5.6).
+      amountLamports: 100000000,
       explorerUrl: explorerTxUrl(PAID_SIGNATURE),
       confirmedAt: "2026-10-03T18:42:11Z",
     },
   },
 ];
 
+// The four demo scenarios, exactly as api.md 3.6 lists them.
 export const scenariosFixture: ReplayScenario[] = [
   {
-    id: "replay-minor-01",
-    label: "Minor offshore quake",
+    id: "jp-2025-m48",
+    label: "Small offshore quake, too weak to score (M4.8, 2025)",
     magnitude: 4.8,
     expectedOutcome: "no_payout",
   },
   {
-    id: "replay-major-01",
-    label: "Major subduction quake",
+    id: "jp-2013-m69-deep",
+    label: "Deep inland quake near Obihiro (M6.9, 107 km, 2013)",
+    magnitude: 6.9,
+    expectedOutcome: "no_payout",
+  },
+  {
+    id: "jp-2022-m73",
+    label: "Fukushima offshore quake (M7.3, 2022)",
+    magnitude: 7.3,
+    expectedOutcome: "payout",
+  },
+  {
+    id: "tohoku-2011-m91",
+    label: "Great Tohoku earthquake (M9.1, 2011)",
     magnitude: 9.1,
     expectedOutcome: "payout",
   },
 ];
 
 // Event details behind each scenario, used to build replayed events.
+// Scores are model-v1's from requirements.md section 13; jp-2025-m48 is
+// below M5.0, so it is never scored (riskScore 0). Coordinates and depth for
+// jp-2022-m73 come from api.md section 4, and Tohoku from section 3.4. The
+// times, and the location of jp-2025-m48, are approximate: the spec does not
+// give them, and in real use they come from the oracle.
 export const scenarioEventFixtures: Record<
   string,
   Pick<
@@ -150,22 +175,40 @@ export const scenarioEventFixtures: Record<
     "time" | "magnitude" | "depthKm" | "latitude" | "longitude" | "place"
   > & { riskScore: number }
 > = {
-  "replay-minor-01": {
-    time: "2021-03-20T09:09:44Z",
+  "jp-2025-m48": {
+    time: "2025-06-01T03:12:00Z",
     magnitude: 4.8,
-    depthKm: 54.0,
-    latitude: 38.47,
-    longitude: 141.63,
-    place: "off the coast of Miyagi, Japan",
-    riskScore: 18,
+    depthKm: 40.0,
+    latitude: 36.4,
+    longitude: 141.6,
+    place: "off the east coast of Honshu, Japan",
+    riskScore: 0,
   },
-  "replay-major-01": {
+  "jp-2013-m69-deep": {
+    time: "2013-02-02T14:17:35Z",
+    magnitude: 6.9,
+    depthKm: 107.0,
+    latitude: 42.77,
+    longitude: 143.087,
+    place: "near Obihiro, Hokkaido, Japan",
+    riskScore: 59,
+  },
+  "jp-2022-m73": {
+    time: "2022-03-16T14:36:33Z",
+    magnitude: 7.3,
+    depthKm: 41.0,
+    latitude: 37.7132,
+    longitude: 141.5793,
+    place: "off the coast of Fukushima, Japan",
+    riskScore: 95,
+  },
+  "tohoku-2011-m91": {
     time: "2011-03-11T05:46:24Z",
     magnitude: 9.1,
     depthKm: 29.0,
     latitude: 38.297,
     longitude: 142.373,
-    place: "near the east coast of Honshu, Japan",
-    riskScore: 97,
+    place: "2011 Great Tohoku Earthquake, Japan",
+    riskScore: 100,
   },
 };

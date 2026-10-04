@@ -1,8 +1,9 @@
 // Mock chain state shared by the mock program client and the mock oracle,
 // so a mock payout moves money the same way trigger_payout would: out of
 // the vault, into the responders' wallets, and into totalPaidOut.
-// Starting totals line up with the oracle fixtures: one 2 SOL payout for
-// replay-major-01, threshold 70.
+// Starting totals line up with the oracle fixtures: one 0.1 SOL payout for
+// tohoku-2011-m91, threshold 70. Pool values match the demo pool in
+// api.md 5.6: 0.1 SOL payout cap, three contributors of about 0.5 SOL.
 
 import { toAddress } from "@solana/client";
 import type { Address, Contribution, Pool } from "../program/client";
@@ -10,8 +11,9 @@ import { mockWallets } from "./wallets";
 
 const SOL = 1_000_000_000n;
 export const VAULT_RENT_EXEMPT_LAMPORTS = 890_880n;
-// Starting balance of every wallet in mock mode.
-const MOCK_WALLET_BALANCE_LAMPORTS = 3n * SOL;
+// Starting balance of every wallet in mock mode; contributors hold about
+// 1 devnet SOL in the demo setup (api.md 5.6).
+const MOCK_WALLET_BALANCE_LAMPORTS = 1n * SOL;
 
 export const mockPoolAddress = toAddress(mockWallets.pool);
 export const mockVaultAddress = toAddress(mockWallets.vault);
@@ -21,25 +23,30 @@ export const mockPool: Pool = {
   oracle: toAddress(mockWallets.oracle),
   regionId: 1,
   threshold: 70,
-  payoutCapLamports: 2n * SOL,
+  payoutCapLamports: 100_000_000n, // 0.1 SOL
   responders: [
     { wallet: toAddress(mockWallets.responderA), shareBps: 6000 },
     { wallet: toAddress(mockWallets.responderB), shareBps: 4000 },
   ],
-  totalContributed: 8n * SOL,
-  totalPaidOut: 2n * SOL,
+  totalContributed: 1_500_000_000n,
+  totalPaidOut: 100_000_000n,
 };
 
 export const mockContributions: Contribution[] = [
   {
     pool: mockPoolAddress,
     contributor: toAddress(mockWallets.contributorA),
-    amount: 5n * SOL,
+    amount: 500_000_000n,
   },
   {
     pool: mockPoolAddress,
     contributor: toAddress(mockWallets.contributorB),
-    amount: 3n * SOL,
+    amount: 500_000_000n,
+  },
+  {
+    pool: mockPoolAddress,
+    contributor: toAddress(mockWallets.contributorC),
+    amount: 500_000_000n,
   },
 ];
 

@@ -10,4 +10,5 @@ export const mockWallets = {
   responderB: "DnsaxoiPwwbwjFJ2jYXrPuHTyVKFTd3vGn8duQ58WbP3",
   contributorA: "vqvwxwKB6SupbfWzXR8aWZr8h1Tj7SEwrDQS5jswAUh",
   contributorB: "CCj9HAVGM5bvE8Y8Y29XhZDKBSvEzDxTmcFceii94YjQ",
+  contributorC: "Gmzwg6REmYLNEZZ2vRKivBXebXFgKc9hAYWQbkvCFbDZ",
 } as const;
